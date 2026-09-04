@@ -8,6 +8,7 @@ import {
   saveLessonStateSnapshot,
   submitAnswerAndPersist,
   synchronizeSoundPreference,
+  synchronizeSpeechRatePreference,
 } from './game-core.js';
 import { getSceneState } from './scene-model.js';
 import {
@@ -41,7 +42,20 @@ import {
   resetGameStorage,
 } from './parent-actions.js';
 import { isSettingsActivationKey } from './view-model.js';
-import { createSpeechCountdown, playSuccess, setSoundEnabled, speak } from './audio.js';
+import {
+  advanceAnswerStreak,
+  createAnswerEffect,
+  settleAnswerFeedbackState,
+  streakFromAnswers,
+} from './answer-effects.js';
+import {
+  createSpeechCountdown,
+  playAnswerFeedback,
+  playSuccess,
+  setSoundEnabled,
+  setSpeechRateMode,
+  speak,
+} from './audio.js';
 import { renderCompletion } from './views/completion-view.js';
 import { renderCourseTable } from './views/course-table-view.js';
 import { renderLesson } from './views/lesson-view.js';
@@ -52,6 +66,7 @@ import { renderPlacement } from './views/placement-view.js';
 const app = document.querySelector('#app');
 const settingsDialog = document.querySelector('#settings-dialog');
 const soundToggle = document.querySelector('#sound-toggle');
+const speechRateInputs = settingsDialog.querySelectorAll('[name="speech-rate"]');
 const resetButton = document.querySelector('#reset-progress');
 const courseTablePanel = document.querySelector('#course-table-panel');
 const parentSettingsPanel = document.querySelector('#parent-settings-panel');
@@ -66,6 +81,8 @@ let repeatState = 'ready';
 let readyToContinue = false;
 let feedbackMessage = '';
 let feedbackKind = '';
+let answerStreak = 0;
+let answerEffect = null;
 let actionActive = false;
 let mapErrorMessage = '';
 let assetsAvailable = true;
@@ -159,6 +176,7 @@ function lessonModel() {
     readyToContinue,
     feedbackMessage,
     feedbackKind,
+    answerEffect,
     actionActive,
     soundEnabled: progress.settings.soundEnabled,
   };
@@ -221,6 +239,8 @@ function recoverToMap(message = '工程资料暂时未加载，请重试。') {
   actionActive = false;
   readyToContinue = false;
   repeatState = 'ready';
+  answerStreak = 0;
+  answerEffect = null;
   mapErrorMessage = message;
 }
 
@@ -256,6 +276,7 @@ function presentInteraction() {
   if (!interaction) throw new Error('课程互动不存在');
   feedbackMessage = '';
   feedbackKind = '';
+  answerEffect = null;
   readyToContinue = false;
   actionActive = false;
   if (interaction.subject === 'english') {
@@ -280,6 +301,8 @@ function beginLesson(lessonId) {
   readyToContinue = false;
   feedbackMessage = '';
   feedbackKind = '';
+  answerStreak = 0;
+  answerEffect = null;
   actionActive = false;
   render();
   speak(`${lesson.title}，准备开始。`, 'zh-CN');
@@ -340,9 +363,12 @@ function handleAnswer(answerId) {
   const result = submitAnswerAndPersist(lessonState, answerId, undefined);
   lessonState = result.state;
   if (!result.correct) {
+    answerStreak = advanceAnswerStreak(answerStreak, { correct: false });
+    answerEffect = createAnswerEffect({ correct: false, streak: answerStreak });
     feedbackKind = 'is-hint';
     feedbackMessage = '';
     render();
+    playAnswerFeedback(answerEffect);
     if (lessonState.hintLevel === 1) {
       speak(interaction.speech.text, interaction.speech.lang);
     } else {
@@ -354,15 +380,23 @@ function handleAnswer(answerId) {
   englishRepeatCountdown.cancel();
   repeatState = 'ready';
   readyToContinue = false;
+  answerStreak = advanceAnswerStreak(answerStreak, {
+    correct: true,
+    assistance: lessonState.hintLevel,
+  });
+  answerEffect = createAnswerEffect({ correct: true, streak: answerStreak });
   feedbackMessage = interaction.success;
   feedbackKind = 'is-success';
   actionActive = true;
   render();
-  playSuccess();
+  playAnswerFeedback(answerEffect);
   speak(interaction.success, 'zh-CN');
   continueTimer = setTimeout(() => {
-    actionActive = false;
-    readyToContinue = true;
+    ({ actionActive, readyToContinue, answerEffect } = settleAnswerFeedbackState({
+      actionActive,
+      readyToContinue,
+      answerEffect,
+    }));
     continueTimer = null;
     render();
   }, 850);
@@ -392,6 +426,7 @@ function continueInteraction() {
     readyToContinue = false;
     feedbackMessage = '';
     feedbackKind = '';
+    answerEffect = null;
     actionActive = true;
     render();
     return;
@@ -426,6 +461,21 @@ function applySoundPreference(soundEnabled) {
   saveProgress(undefined, progress);
 }
 
+function syncSpeechRateControls() {
+  for (const input of speechRateInputs) {
+    input.checked = input.value === progress.settings.speechRate;
+  }
+}
+
+function applySpeechRatePreference(speechRate) {
+  const synchronized = synchronizeSpeechRatePreference(progress, lessonState, speechRate);
+  progress = synchronized.progress;
+  lessonState = synchronized.lessonState;
+  setSpeechRateMode(progress.settings.speechRate);
+  syncSpeechRateControls();
+  saveProgress(undefined, progress);
+}
+
 function renderCoursePanel() {
   const allRows = buildCourseRows(LESSONS, progress);
   const filteredRows = filterCourseRows(allRows, courseFilters);
@@ -453,6 +503,7 @@ function showParentTab(tab) {
 function openSettings() {
   renderCoursePanel();
   soundToggle.checked = progress.settings.soundEnabled;
+  syncSpeechRateControls();
   resetArmed = false;
   resetButton.textContent = '重置学习记录';
   showParentTab('course');
@@ -464,6 +515,8 @@ function restoreActiveLesson() {
   if (!snapshot) return;
   try {
     lessonState = restoreLessonState(snapshot, progress);
+    answerStreak = streakFromAnswers(lessonState.answers);
+    answerEffect = null;
     progress = lessonState.progress;
     saveProgress(undefined, progress);
     screen = 'lesson';
@@ -578,6 +631,10 @@ settingsDialog.addEventListener('keydown', (event) => {
 });
 
 settingsDialog.addEventListener('change', (event) => {
+  if (event.target.name === 'speech-rate') {
+    applySpeechRatePreference(event.target.value);
+    return;
+  }
   const filter = event.target.dataset.courseFilter;
   if (!filter) return;
   courseFilters = {
@@ -618,12 +675,16 @@ resetButton.addEventListener('click', () => {
   mapErrorMessage = '';
   assetsAvailable = true;
   setSoundEnabled(progress.settings.soundEnabled);
+  setSpeechRateMode(progress.settings.speechRate);
+  syncSpeechRateControls();
   settingsDialog.close();
   render();
 });
 
 setSoundEnabled(progress.settings.soundEnabled);
+setSpeechRateMode(progress.settings.speechRate);
 soundToggle.checked = progress.settings.soundEnabled;
+syncSpeechRateControls();
 renderCoursePanel();
 showParentTab(parentTab);
 render();

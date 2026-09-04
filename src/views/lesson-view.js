@@ -14,6 +14,26 @@ const SUBJECT_LABELS = Object.freeze({
   mixed: '综合配送',
 });
 
+const EFFECT_GLYPHS = Object.freeze({
+  beacon: '◆',
+  bolt: '⚡',
+  bubble: '○',
+  cloud: '●',
+  cone: '▲',
+  flag: '⚑',
+  gear: '⚙',
+  heart: '♥',
+  helmet: '⛑',
+  lamp: '◎',
+  like: '👍',
+  ribbon: '✦',
+  sign: '▰',
+  spark: '★',
+  star: '★',
+  toolbox: '■',
+  wheel: '●',
+});
+
 function choicesFor(interaction, hintLevel, answered) {
   if (answered || hintLevel < 2) return interaction.choices;
   const answer = interaction.choices.find((choice) => choice.id === interaction.answerId);
@@ -66,6 +86,37 @@ function repeatMarkup(repeatState) {
     </div>`;
 }
 
+function numericEffectValue(value, fallback = 0) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function answerEffectMarkup(effect) {
+  if (!effect || !['success', 'retry'].includes(effect.kind) || !Array.isArray(effect.particles)) {
+    return '';
+  }
+  const tier = ['standard', 'combo', 'super', 'mega', 'retry'].includes(effect.tier)
+    ? effect.tier
+    : 'standard';
+  const effectClasses = [...new Set(['answer-effect-layer', `is-${effect.kind}`, `is-${tier}`])];
+  const particles = effect.particles.map((particle, index) => {
+    const glyph = EFFECT_GLYPHS[particle?.glyph] ?? EFFECT_GLYPHS.spark;
+    const style = [
+      `--lane:${numericEffectValue(particle?.lane, index % 100)}`,
+      `--x:${numericEffectValue(particle?.x)}`,
+      `--y:${numericEffectValue(particle?.y, -30)}`,
+      `--delay:${numericEffectValue(particle?.delay)}ms`,
+      `--size:${numericEffectValue(particle?.size, 20)}px`,
+      `--rotation:${numericEffectValue(particle?.rotation)}deg`,
+    ].join(';');
+    return `<i class="answer-effect-particle glyph-${escapeHtml(particle?.glyph ?? 'spark')}" style="${style}">${glyph}</i>`;
+  }).join('');
+  return `
+    <div class="${effectClasses.join(' ')}" data-variant="${escapeHtml(effect.variant ?? '')}" aria-hidden="true">
+      <strong class="answer-effect-badge">${escapeHtml(effect.message ?? '')}</strong>
+      ${particles}
+    </div>`;
+}
+
 function briefingMarkup(lesson, project) {
   return `
     <section class="lesson-controls briefing-controls" aria-labelledby="lesson-title">
@@ -114,7 +165,8 @@ export function renderLesson(model) {
   const speechLabel = isEnglish ? interaction.speech.text : '再听一遍';
 
   return `
-    <div class="app-shell lesson-shell" data-view="lesson" data-subject="${escapeHtml(interaction.subject)}">
+    <div class="app-shell lesson-shell" data-view="lesson" data-subject="${escapeHtml(interaction.subject)}" data-interaction-kind="${escapeHtml(interaction.kind ?? '')}">
+      ${answerEffectMarkup(model.answerEffect)}
       ${topbar}
       ${renderWorldScene(model.scene, {
         label: `${region.title}，${vehicleLabel(model.scene.vehicleSymbolId)}正在${project.title}`,

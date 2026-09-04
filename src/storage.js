@@ -1,4 +1,8 @@
 import { createSkillRecord } from './mastery.js';
+import {
+  DEFAULT_SPEECH_RATE_MODE,
+  normalizeSpeechRateMode,
+} from './preferences.js';
 
 export const STORAGE_KEY = 'space-construction-fleet.progress.v2';
 export const ACTIVE_KEY = 'space-construction-fleet.active.v2';
@@ -47,7 +51,10 @@ export const DEFAULT_PROGRESS = Object.freeze({
   honors: Object.freeze([]),
   vehicleUpgrades: Object.freeze([]),
   placement: null,
-  settings: Object.freeze({ soundEnabled: true }),
+  settings: Object.freeze({
+    soundEnabled: true,
+    speechRate: DEFAULT_SPEECH_RATE_MODE,
+  }),
   storageAvailable: true,
 });
 
@@ -183,6 +190,7 @@ function isPlacementRecord(value) {
 }
 
 export function createProgressV2(overrides = {}) {
+  const { settings, ...progressOverrides } = overrides;
   return {
     version: 2,
     currentLessonId: null,
@@ -193,9 +201,13 @@ export function createProgressV2(overrides = {}) {
     honors: [],
     vehicleUpgrades: [],
     placement: null,
-    settings: { soundEnabled: true },
+    settings: {
+      soundEnabled: true,
+      speechRate: DEFAULT_SPEECH_RATE_MODE,
+      ...settings,
+    },
     storageAvailable: true,
-    ...overrides,
+    ...progressOverrides,
   };
 }
 
@@ -232,7 +244,10 @@ function normalizeV2(value) {
     honors: unique(value.honors),
     vehicleUpgrades: [...value.vehicleUpgrades],
     placement: placement === null ? null : { ...placement },
-    settings: { soundEnabled: value.settings.soundEnabled },
+    settings: {
+      soundEnabled: value.settings.soundEnabled,
+      speechRate: normalizeSpeechRateMode(value.settings.speechRate),
+    },
     storageAvailable: value.storageAvailable,
   };
 }
@@ -352,7 +367,10 @@ export function migrateProgress(raw) {
       currentLessonId: value.sessionsCompleted >= 270
         ? null
         : `lesson-${String(value.sessionsCompleted + 1).padStart(3, '0')}`,
-      settings: { soundEnabled: value.soundEnabled !== false },
+      settings: {
+        soundEnabled: value.soundEnabled !== false,
+        speechRate: DEFAULT_SPEECH_RATE_MODE,
+      },
     });
 
     for (let index = 1; index <= Math.min(value.sessionsCompleted, 270); index += 1) {

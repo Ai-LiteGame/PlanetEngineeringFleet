@@ -10,6 +10,7 @@ import {
   saveActiveLesson,
   saveProgress,
 } from './storage.js';
+import { isSpeechRateMode } from './preferences.js';
 
 export const STAGES = ['chinese', 'english', 'math', 'mixed'];
 
@@ -235,13 +236,10 @@ function isLessonState(state) {
     && Array.isArray(state.interactions);
 }
 
-export function synchronizeSoundPreference(progress, lessonState, soundEnabled) {
-  if (typeof soundEnabled !== 'boolean') {
-    return { progress, lessonState };
-  }
+function synchronizePreference(progress, lessonState, setting) {
   const nextProgress = {
     ...progress,
-    settings: { ...progress?.settings, soundEnabled },
+    settings: { ...progress?.settings, ...setting },
   };
   return {
     progress: nextProgress,
@@ -249,6 +247,18 @@ export function synchronizeSoundPreference(progress, lessonState, soundEnabled) 
       ? { ...lessonState, progress: nextProgress }
       : lessonState,
   };
+}
+
+export function synchronizeSoundPreference(progress, lessonState, soundEnabled) {
+  if (typeof soundEnabled !== 'boolean') {
+    return { progress, lessonState };
+  }
+  return synchronizePreference(progress, lessonState, { soundEnabled });
+}
+
+export function synchronizeSpeechRatePreference(progress, lessonState, speechRate) {
+  if (!isSpeechRateMode(speechRate)) return { progress, lessonState };
+  return synchronizePreference(progress, lessonState, { speechRate });
 }
 
 function enterPlaying(state) {

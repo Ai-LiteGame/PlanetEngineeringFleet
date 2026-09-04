@@ -243,6 +243,60 @@ test('third hint demonstrates without auto-submitting and answered view locks ch
   assert.equal((answered.match(/ disabled/g) ?? []).length, interaction.choices.length);
 });
 
+test('lesson feedback renders a non-blocking batch effect with combo status', () => {
+  const state = firstLessonState();
+  const interaction = state.interactions[0];
+  const html = renderLesson({
+    lesson: LESSONS[0],
+    interaction,
+    interactionIndex: 2,
+    interactionTotal: state.interactions.length,
+    scene: getSceneState('sunny-town', 1, interaction, []),
+    hintLevel: 0,
+    answered: true,
+    repeatState: 'ready',
+    answerEffect: {
+      kind: 'success',
+      tier: 'combo',
+      variant: 'gear-burst',
+      message: '连续答对 3 次',
+      particles: Array.from({ length: 18 }, (_, index) => ({
+        glyph: index % 2 === 0 ? 'star' : 'gear',
+        lane: index,
+      })),
+    },
+  });
+
+  assert.match(html, /class="answer-effect-layer is-success is-combo"/);
+  assert.match(html, /连续答对 3 次/);
+  assert.equal((html.match(/class="answer-effect-particle/g) ?? []).length, 18);
+  assert.match(html, /aria-hidden="true"/);
+});
+
+test('clock lessons expose a responsive layout hook for their tall visual prompt', () => {
+  const state = firstLessonState();
+  const interaction = {
+    ...state.interactions[0],
+    kind: 'math-clock',
+    subject: 'math',
+    visualPrompt: '开始\n钟面\n12\n9 ● 3\n6\n结束\n钟面\n12\n9 ● 3\n6',
+  };
+  const html = renderLesson({
+    lesson: LESSONS[0],
+    interaction,
+    interactionIndex: 8,
+    interactionTotal: state.interactions.length,
+    scene: getSceneState('sunny-town', 1, interaction, []),
+    hintLevel: 0,
+    answered: true,
+    readyToContinue: true,
+    repeatState: 'ready',
+  });
+
+  assert.match(html, /data-interaction-kind="math-clock"/);
+  assert.match(html, />继续施工</);
+});
+
 test('completion view returns to the map and escapes curriculum copy', () => {
   const lesson = {
     ...LESSONS[0],
@@ -301,6 +355,12 @@ test('mobile CSS keeps lesson progress visible and reset control touch-sized', a
   assert.doesNotMatch(mobile, /\.lesson-progress\s*{[^}]*display:\s*none/);
   assert.match(mobile, /\.lesson-topbar \.brand-lockup\s*{[^}]*display:\s*none/);
   assert.match(css, /#reset-progress\s*{[^}]*min-height:\s*56px/);
+  assert.match(mobile, /\.lesson-shell\s*{[^}]*minmax\(170px,\s*24svh\)/);
+  assert.match(mobile, /\.answer-button\s*{[^}]*min-height:\s*68px/);
+  assert.match(mobile, /\.continue-row\s*{[^}]*margin-top:\s*10px/);
+  assert.match(mobile, /\.lesson-controls\s*{[^}]*overflow-y:\s*auto/);
+  assert.match(mobile, /data-interaction-kind="math-clock"[^}]*\.answer-grid\s*{[^}]*grid-template-columns:\s*repeat\(3/);
+  assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*\.answer-effect-layer\s*{[^}]*display:\s*none/);
 });
 
 test('adult course controls meet the minimum touch target height', async () => {
@@ -318,6 +378,10 @@ test('adult area exposes course and settings tabs plus JSON export controls', as
   assert.match(html, /data-parent-tab="course"/);
   assert.match(html, /data-parent-tab="settings"/);
   assert.match(html, /data-action="export-progress"/);
+  assert.equal((html.match(/name="speech-rate"/g) ?? []).length, 3);
+  for (const value of ['slow', 'normal', 'fast']) {
+    assert.match(html, new RegExp(`name="speech-rate"[^>]*value="${value}"`));
+  }
 });
 
 test('progress export creates, clicks, removes, and revokes one JSON download', () => {

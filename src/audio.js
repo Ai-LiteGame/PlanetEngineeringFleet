@@ -1,9 +1,38 @@
+import {
+  SPEECH_RATE_MULTIPLIERS,
+  normalizeSpeechRateMode,
+} from './preferences.js';
+
 let soundEnabled = true;
+let speechRateMode = 'normal';
 let audioContext = null;
 let activeSpeech = null;
 const nativeSpeechHandler = 'planetEngineeringFleetTts';
 const compatibleSpeechHandler = 'planetEngineeringFleetTtsFallback';
 const nativeSpeechTimeout = 12000;
+
+export function createFeedbackTonePlan({ kind, tier = 'standard', variant = 0 } = {}) {
+  const safeVariant = Number.isInteger(variant) && variant >= 0 ? variant : 0;
+  if (kind === 'retry') {
+    const base = 196 + (safeVariant % 8) * 17;
+    return [
+      { frequency: base * 1.18, delay: 0, duration: 0.14, gain: 0.035, type: 'sine' },
+      { frequency: base, delay: 0.11, duration: 0.18, gain: 0.028, type: 'triangle' },
+    ];
+  }
+
+  const base = 440 + (safeVariant % 10) * 21;
+  const notes = [1, 1.25, 1.5];
+  const extraNotes = { standard: 0, combo: 1, super: 2, mega: 3 }[tier] ?? 0;
+  return [...notes, ...Array.from({ length: extraNotes }, (_, index) => 1.75 + index * 0.25)]
+    .map((ratio, index) => ({
+      frequency: base * ratio,
+      delay: index * 0.075,
+      duration: 0.17 + Math.min(index, 2) * 0.025,
+      gain: tier === 'mega' ? 0.075 : 0.06,
+      type: index % 2 === 0 ? 'sine' : 'triangle',
+    }));
+}
 const listeningBridges = new WeakSet();
 const pendingNativeSpeech = new Map();
 let nativeRequestSequence = 0;
@@ -24,6 +53,15 @@ export function setSoundEnabled(value) {
       // Some WebViews expose speechSynthesis before its native backend is ready.
     }
   }
+}
+
+export function setSpeechRateMode(value) {
+  speechRateMode = normalizeSpeechRateMode(value);
+}
+
+function speechRate(lang) {
+  const baseRate = lang.startsWith('en') ? 0.72 : 0.82;
+  return Number((baseRate * SPEECH_RATE_MULTIPLIERS[speechRateMode]).toFixed(3));
 }
 
 function nativeBridge() {
@@ -184,7 +222,7 @@ export function speak(text, lang = 'zh-CN') {
   const payload = {
     text,
     lang,
-    rate: lang.startsWith('en') ? 0.72 : 0.82,
+    rate: speechRate(lang),
     pitch: 1.08,
   };
   const bridge = nativeBridge();
@@ -248,28 +286,37 @@ function context() {
   }
 }
 
-export function playSuccess() {
+export function playAnswerFeedback(effect) {
   if (!soundEnabled) return false;
   const ctx = context();
   if (!ctx) return false;
 
   try {
     const start = ctx.currentTime;
-    [[523.25, 0], [659.25, 0.12]].forEach(([frequency, delay]) => {
+    const tones = createFeedbackTonePlan({
+      kind: effect?.kind,
+      tier: effect?.tier,
+      variant: effect?.soundVariant,
+    });
+    tones.forEach(({ frequency, delay, duration, gain: peakGain, type }) => {
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
-      oscillator.type = 'sine';
+      oscillator.type = type;
       oscillator.frequency.value = frequency;
       gain.gain.setValueAtTime(0.0001, start + delay);
-      gain.gain.exponentialRampToValueAtTime(0.12, start + delay + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + delay + 0.18);
+      gain.gain.exponentialRampToValueAtTime(peakGain, start + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + delay + duration);
       oscillator.connect(gain);
       gain.connect(ctx.destination);
       oscillator.start(start + delay);
-      oscillator.stop(start + delay + 0.2);
+      oscillator.stop(start + delay + duration + 0.02);
     });
     return true;
   } catch {
     return false;
   }
+}
+
+export function playSuccess() {
+  return playAnswerFeedback({ kind: 'success', tier: 'standard', soundVariant: 0 });
 }

@@ -1,10 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createSpeechCountdown, setSoundEnabled, speak } from '../src/audio.js';
+import {
+  createFeedbackTonePlan,
+  createSpeechCountdown,
+  playAnswerFeedback,
+  setSoundEnabled,
+  setSpeechRateMode,
+  speak,
+} from '../src/audio.js';
 
 const nativeSpeechHandler = 'planetEngineeringFleetTts';
 const compatibleSpeechHandler = 'planetEngineeringFleetTtsFallback';
+
+test('answer feedback supplies varied multi-note cues that grow with combo tier', () => {
+  const successPlans = Array.from({ length: 10 }, (_, variant) => (
+    createFeedbackTonePlan({ kind: 'success', tier: 'standard', variant })
+  ));
+  const retryPlans = Array.from({ length: 8 }, (_, variant) => (
+    createFeedbackTonePlan({ kind: 'retry', tier: 'retry', variant })
+  ));
+  const combo = createFeedbackTonePlan({ kind: 'success', tier: 'combo', variant: 0 });
+  const mega = createFeedbackTonePlan({ kind: 'success', tier: 'mega', variant: 0 });
+
+  assert.equal(new Set(successPlans.map((plan) => JSON.stringify(plan))).size, 10);
+  assert.equal(new Set(retryPlans.map((plan) => JSON.stringify(plan))).size, 8);
+  assert.equal(successPlans.every((plan) => plan.length >= 2), true);
+  assert.equal(retryPlans.every((plan) => plan.length >= 2), true);
+  assert.equal(combo.length > successPlans[0].length, true);
+  assert.equal(mega.length > combo.length, true);
+});
 
 function deferred() {
   let resolve;
@@ -40,6 +65,56 @@ function fakeNativeBridge(onMessage) {
   };
 }
 
+test('answer feedback obeys the sound preference before creating audio nodes', () => {
+  const restore = preserveGlobals(['AudioContext', 'webkitAudioContext']);
+  let oscillatorCount = 0;
+  class FakeAudioContext {
+    constructor() {
+      this.currentTime = 0;
+      this.destination = {};
+    }
+
+    createOscillator() {
+      oscillatorCount += 1;
+      return {
+        type: '',
+        frequency: { value: 0 },
+        connect() {},
+        start() {},
+        stop() {},
+      };
+    }
+
+    createGain() {
+      return {
+        gain: {
+          setValueAtTime() {},
+          exponentialRampToValueAtTime() {},
+        },
+        connect() {},
+      };
+    }
+  }
+  Object.defineProperty(globalThis, 'AudioContext', {
+    configurable: true,
+    value: FakeAudioContext,
+  });
+  delete globalThis.webkitAudioContext;
+
+  try {
+    setSoundEnabled(false);
+    assert.equal(playAnswerFeedback({ kind: 'success', tier: 'combo', soundVariant: 2 }), false);
+    assert.equal(oscillatorCount, 0);
+
+    setSoundEnabled(true);
+    assert.equal(playAnswerFeedback({ kind: 'success', tier: 'combo', soundVariant: 2 }), true);
+    assert.equal(oscillatorCount, 4);
+  } finally {
+    setSoundEnabled(true);
+    restore();
+  }
+});
+
 test('speak prefers the origin-restricted Flutter message bridge without Web Speech', async () => {
   const restore = preserveGlobals([
     nativeSpeechHandler,
@@ -68,6 +143,40 @@ test('speak prefers the origin-restricted Flutter message bridge without Web Spe
     calls[0].reply({ id: calls[0].message.id, result: { ok: true } });
     assert.equal(await completion, true);
   } finally {
+    setSoundEnabled(true);
+    restore();
+  }
+});
+
+test('speech rate modes scale Chinese and English native requests', async () => {
+  const restore = preserveGlobals([
+    nativeSpeechHandler,
+    'SpeechSynthesisUtterance',
+    'speechSynthesis',
+  ]);
+  const calls = [];
+  Object.defineProperty(globalThis, nativeSpeechHandler, {
+    configurable: true,
+    value: fakeNativeBridge((message, reply) => calls.push({ message, reply })),
+  });
+  delete globalThis.SpeechSynthesisUtterance;
+  delete globalThis.speechSynthesis;
+
+  try {
+    setSoundEnabled(true);
+    setSpeechRateMode('slow');
+    const chinese = speak('手', 'zh-CN');
+    assert.equal(calls[0].message.payload.rate, 0.697);
+    calls[0].reply({ id: calls[0].message.id, result: { ok: true } });
+    assert.equal(await chinese, true);
+
+    setSpeechRateMode('fast');
+    const english = speak('hand', 'en-US');
+    assert.equal(calls[1].message.payload.rate, 0.828);
+    calls[1].reply({ id: calls[1].message.id, result: { ok: true } });
+    assert.equal(await english, true);
+  } finally {
+    setSpeechRateMode('normal');
     setSoundEnabled(true);
     restore();
   }

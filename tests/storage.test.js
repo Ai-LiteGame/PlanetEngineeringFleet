@@ -63,6 +63,7 @@ test('version one progress migrates known skills to schedulable version two IDs'
 
 test('version two progress round trips while de-duplicating honor IDs', () => {
   const progress = createProgressV2();
+  progress.settings.speechRate = 'fast';
   progress.lessons['lesson-001'] = {
     status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 2000, hintCount: 4,
     recentHintTimestamps: [1500, 2000],
@@ -84,6 +85,22 @@ test('version two progress round trips while de-duplicating honor IDs', () => {
   assert.equal(restored.lessons['lesson-001'].hintCount, 4);
   assert.deepEqual(restored.lessons['lesson-001'].recentHintTimestamps, [1500, 2000]);
   assert.equal(restored.storageAvailable, true);
+  assert.equal(restored.settings.speechRate, 'fast');
+});
+
+test('old and malformed speech-rate settings keep progress with a standard default', () => {
+  const oldProgress = createProgressV2();
+  delete oldProgress.settings.speechRate;
+  oldProgress.currentLessonId = 'lesson-014';
+
+  const restoredOld = parseProgress(JSON.stringify(oldProgress));
+  assert.equal(restoredOld.currentLessonId, 'lesson-014');
+  assert.equal(restoredOld.settings.speechRate, 'normal');
+
+  oldProgress.settings.speechRate = 'racing';
+  const restoredMalformed = parseProgress(JSON.stringify(oldProgress));
+  assert.equal(restoredMalformed.currentLessonId, 'lesson-014');
+  assert.equal(restoredMalformed.settings.speechRate, 'normal');
 });
 
 test('version two skill scheduling fields round trip and old records receive compatible defaults', () => {

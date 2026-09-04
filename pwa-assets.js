@@ -1,5 +1,5 @@
 export const PWA_CACHE_PREFIX = 'planet-engineering-fleet';
-export const PWA_CACHE_VERSION = 'v2-0b0404efcb6baf9ea25a841c2e891991c6e0d7fd434d175f9e1e614b6d3d079c';
+export const PWA_CACHE_VERSION = 'v2-0060b219c414dc6cd642c24c02537e157c6b98b09000041f20a31d089e548d65';
 
 export const PWA_ASSETS = Object.freeze([
   './',
@@ -10,6 +10,7 @@ export const PWA_ASSETS = Object.freeze([
   './pwa-assets.js',
   './src/app.js',
   './src/audio.js',
+  './src/answer-effects.js',
   './src/content.js',
   './src/course-table.js',
   './src/curriculum/chinese.js',
@@ -24,6 +25,7 @@ export const PWA_ASSETS = Object.freeze([
   './src/honors.js',
   './src/mastery.js',
   './src/parent-actions.js',
+  './src/preferences.js',
   './src/progression.js',
   './src/question-factories.js',
   './src/register-service-worker.js',

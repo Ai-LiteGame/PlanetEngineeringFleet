@@ -9,6 +9,7 @@ import {
   submitAnswer,
   submitAnswerAndPersist,
   synchronizeSoundPreference,
+  synchronizeSpeechRatePreference,
   advance,
   completeLesson,
   commitLessonCompletion,
@@ -194,6 +195,22 @@ test('sound preference stays synchronized through the briefing transition', () =
   const unmuted = synchronizeSoundPreference(muted.progress, null, true);
   assert.equal(unmuted.progress.settings.soundEnabled, true);
   assert.equal(unmuted.lessonState, null);
+});
+
+test('speech rate preference stays synchronized with an active lesson', () => {
+  const progress = createProgressV2();
+  const briefing = createLessonState('lesson-001', progress, 13, 1000);
+
+  const faster = synchronizeSpeechRatePreference(progress, briefing, 'fast');
+
+  assert.equal(progress.settings.speechRate, 'normal');
+  assert.equal(faster.progress.settings.speechRate, 'fast');
+  assert.equal(faster.lessonState.progress, faster.progress);
+  assert.equal(advance(faster.lessonState).progress.settings.speechRate, 'fast');
+
+  const invalid = synchronizeSpeechRatePreference(faster.progress, null, 'racing');
+  assert.equal(invalid.progress, faster.progress);
+  assert.equal(invalid.lessonState, null);
 });
 
 test('wrong answers reveal three help levels without completing the interaction', () => {
