@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, readdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -20,6 +20,10 @@ function normalizeEntry(path) {
 
 function isExcluded(path) {
   return path.endsWith('.map') || path.split('/').some((segment) => excludedSegments.includes(segment));
+}
+
+async function makeTempDirectory(prefix) {
+  return realpath(await mkdtemp(join(tmpdir(), prefix)));
 }
 
 async function recursivelyList(directory, prefix = '') {
@@ -44,7 +48,7 @@ async function writeAllowedFiles(root, entries = PWA_ASSETS) {
 }
 
 test('directory build copies exactly the shared PWA asset list', async (t) => {
-  const outputRoot = await mkdtemp(join(tmpdir(), 'fleet-pwa-'));
+  const outputRoot = await makeTempDirectory('fleet-pwa-');
   t.after(() => rm(outputRoot, { recursive: true, force: true }));
   const packageDirectory = await buildPwaDirectory({ projectRoot, outputRoot });
   const entries = (await recursivelyList(packageDirectory)).sort();
@@ -55,7 +59,7 @@ test('directory build copies exactly the shared PWA asset list', async (t) => {
 });
 
 test('collectPackageEntries rejects unsafe, duplicate, missing, and directory asset entries', async (t) => {
-  const fixtureRoot = await mkdtemp(join(tmpdir(), 'fleet-pwa-project-'));
+  const fixtureRoot = await makeTempDirectory('fleet-pwa-project-');
   t.after(() => rm(fixtureRoot, { recursive: true, force: true }));
   await writeAllowedFiles(fixtureRoot);
 
@@ -67,11 +71,16 @@ test('collectPackageEntries rejects unsafe, duplicate, missing, and directory as
   await rm(join(fixtureRoot, 'src/app.js'));
   await mkdir(join(fixtureRoot, 'src/app.js'));
   await assert.rejects(() => collectPackageEntries(fixtureRoot, ['./src/app.js']), /目录/);
+
+  await rm(join(fixtureRoot, 'src/app.js'), { recursive: true });
+  const fifoResult = spawnSync('mkfifo', [join(fixtureRoot, 'src/app.js')], { encoding: 'utf8' });
+  assert.equal(fifoResult.status, 0, fifoResult.stderr);
+  await assert.rejects(() => collectPackageEntries(fixtureRoot, ['./src/app.js']), /普通文件/);
 });
 
 test('collectPackageEntries rejects a file symlink that targets outside the project', async (t) => {
-  const fixtureRoot = await mkdtemp(join(tmpdir(), 'fleet-pwa-project-'));
-  const externalRoot = await mkdtemp(join(tmpdir(), 'fleet-pwa-external-'));
+  const fixtureRoot = await makeTempDirectory('fleet-pwa-project-');
+  const externalRoot = await makeTempDirectory('fleet-pwa-external-');
   t.after(() => rm(fixtureRoot, { recursive: true, force: true }));
   t.after(() => rm(externalRoot, { recursive: true, force: true }));
   await writeAllowedFiles(fixtureRoot);
@@ -85,7 +94,86 @@ test('collectPackageEntries rejects a file symlink that targets outside the proj
   await assert.rejects(() => collectPackageEntries(fixtureRoot), /符号链接/);
 });
 
-test('package command creates a ZIP with one stable top-level directory', () => {
+test('directory build rejects a symlinked source parent without copying external bytes', async (t) => {
+  const fixtureRoot = await makeTempDirectory('fleet-pwa-project-');
+  const externalRoot = await makeTempDirectory('fleet-pwa-external-');
+  const outputRoot = await makeTempDirectory('fleet-pwa-output-');
+  t.after(() => rm(fixtureRoot, { recursive: true, force: true }));
+  t.after(() => rm(externalRoot, { recursive: true, force: true }));
+  t.after(() => rm(outputRoot, { recursive: true, force: true }));
+  await writeAllowedFiles(fixtureRoot);
+
+  const externalSourceDirectory = join(externalRoot, 'src');
+  await rename(join(fixtureRoot, 'src'), externalSourceDirectory);
+  const sentinel = 'external source sentinel';
+  await writeFile(join(externalSourceDirectory, 'app.js'), sentinel);
+  await symlink(externalSourceDirectory, join(fixtureRoot, 'src'));
+
+  const buildError = await buildPwaDirectory({ projectRoot: fixtureRoot, outputRoot })
+    .then(() => null, (error) => error);
+  const copiedSentinel = await readFile(
+    join(outputRoot, PACKAGE_DIRECTORY_NAME, 'src/app.js'),
+    'utf8',
+  ).catch((error) => error.code === 'ENOENT' ? null : Promise.reject(error));
+
+  assert.equal(copiedSentinel, null, 'external source bytes must not enter the package');
+  assert.match(buildError?.message ?? '', /符号链接/);
+  assert.equal(await readFile(join(externalSourceDirectory, 'app.js'), 'utf8'), sentinel);
+});
+
+test('directory build rejects a symlinked output root without deleting its external target', async (t) => {
+  const fixtureRoot = await makeTempDirectory('fleet-pwa-project-');
+  const workspace = await makeTempDirectory('fleet-pwa-workspace-');
+  const externalRoot = await makeTempDirectory('fleet-pwa-external-output-');
+  t.after(() => rm(fixtureRoot, { recursive: true, force: true }));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  t.after(() => rm(externalRoot, { recursive: true, force: true }));
+  await writeAllowedFiles(fixtureRoot);
+
+  const externalPackageDirectory = join(externalRoot, PACKAGE_DIRECTORY_NAME);
+  const sentinelPath = join(externalPackageDirectory, 'do-not-delete.txt');
+  const sentinel = 'external output sentinel';
+  await mkdir(externalPackageDirectory);
+  await writeFile(sentinelPath, sentinel);
+  const linkedOutputRoot = join(workspace, 'dist');
+  await symlink(externalRoot, linkedOutputRoot);
+
+  const buildError = await buildPwaDirectory({ projectRoot: fixtureRoot, outputRoot: linkedOutputRoot })
+    .then(() => null, (error) => error);
+  const preservedSentinel = await readFile(sentinelPath, 'utf8')
+    .catch((error) => error.code === 'ENOENT' ? null : Promise.reject(error));
+
+  assert.equal(preservedSentinel, sentinel, 'external output target must remain untouched');
+  assert.match(buildError?.message ?? '', /符号链接/);
+});
+
+test('directory build rejects a symlinked output parent without deleting its external target', async (t) => {
+  const workspace = await makeTempDirectory('fleet-pwa-workspace-');
+  const externalRoot = await makeTempDirectory('fleet-pwa-external-output-');
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  t.after(() => rm(externalRoot, { recursive: true, force: true }));
+
+  const externalOutputRoot = join(externalRoot, 'dist');
+  const externalPackageDirectory = join(externalOutputRoot, PACKAGE_DIRECTORY_NAME);
+  const sentinelPath = join(externalPackageDirectory, 'do-not-delete.txt');
+  const sentinel = 'external output parent sentinel';
+  await mkdir(externalPackageDirectory, { recursive: true });
+  await writeFile(sentinelPath, sentinel);
+  const linkedParent = join(workspace, 'redirect');
+  await symlink(externalRoot, linkedParent);
+
+  const buildError = await buildPwaDirectory({
+    projectRoot,
+    outputRoot: join(linkedParent, 'dist'),
+  }).then(() => null, (error) => error);
+  const preservedSentinel = await readFile(sentinelPath, 'utf8')
+    .catch((error) => error.code === 'ENOENT' ? null : Promise.reject(error));
+
+  assert.equal(preservedSentinel, sentinel, 'external output target must remain untouched');
+  assert.match(buildError?.message ?? '', /符号链接/);
+});
+
+test('package command creates a byte-equivalent ZIP from exactly the shared asset list', async () => {
   const result = spawnSync(process.execPath, ['scripts/package-pwa.mjs'], { cwd: projectRoot, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   const entries = spawnSync('unzip', ['-Z1', 'dist/planet-engineering-fleet-pwa.zip'], { cwd: projectRoot, encoding: 'utf8' });
@@ -93,10 +181,35 @@ test('package command creates a ZIP with one stable top-level directory', () => 
   const listedEntries = entries.stdout.split('\n').filter(Boolean);
   assert.equal(listedEntries.every((entry) => entry.startsWith(`${PACKAGE_DIRECTORY_NAME}/`)), true);
   assert.equal(listedEntries.some((entry) => isExcluded(entry)), false);
+
+  const prefix = `${PACKAGE_DIRECTORY_NAME}/`;
+  const archivedFiles = listedEntries
+    .filter((entry) => !entry.endsWith('/'))
+    .map((entry) => entry.slice(prefix.length))
+    .sort();
+  const expectedFiles = PWA_ASSETS
+    .filter((path) => path !== './')
+    .map(normalizeEntry)
+    .sort();
+  assert.deepEqual(archivedFiles, expectedFiles);
+
+  for (const relativePath of expectedFiles) {
+    const archived = spawnSync(
+      'unzip',
+      ['-p', 'dist/planet-engineering-fleet-pwa.zip', `${prefix}${relativePath}`],
+      { cwd: projectRoot },
+    );
+    assert.equal(archived.status, 0, archived.stderr.toString());
+    assert.deepEqual(
+      archived.stdout,
+      await readFile(join(projectRoot, 'dist', PACKAGE_DIRECTORY_NAME, relativePath)),
+      relativePath,
+    );
+  }
 });
 
 test('package command reports when zip is unavailable after building the static directory', async (t) => {
-  const workspace = await mkdtemp(join(tmpdir(), 'fleet-pwa-cli-'));
+  const workspace = await makeTempDirectory('fleet-pwa-cli-');
   const temporaryProject = join(workspace, 'project');
   t.after(() => rm(workspace, { recursive: true, force: true }));
   await cp(projectRoot, temporaryProject, {

@@ -180,7 +180,10 @@ test('service worker registration uses the relative module worker and fails safe
     },
   };
   assert.equal(await registerServiceWorker(container, logger), registration);
-  assert.deepEqual(calls, [['./service-worker.js', { scope: './', type: 'module' }]]);
+  assert.deepEqual(calls, [[
+    './service-worker.js',
+    { scope: './', type: 'module', updateViaCache: 'none' },
+  ]]);
 
   const rejected = { register: async () => { throw new Error('unavailable'); } };
   assert.equal(await registerServiceWorker(rejected, logger), null);

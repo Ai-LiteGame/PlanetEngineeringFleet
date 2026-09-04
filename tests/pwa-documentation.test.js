@@ -27,6 +27,7 @@ test('README requires secure production hosting and limits localhost to local ac
   const section = await readBrowserAndOfflineSection();
   assert.match(section, /正式站点必须通过 HTTPS 提供/);
   assert.match(section, /`http:\/\/localhost` 仅用于本机开发和验收/);
+  assert.match(section, /解压后的文件不能通过 `file:\/\/` 直接打开[^。]*必须通过 HTTPS 或 `http:\/\/localhost` 提供服务/);
 });
 
 test('README distinguishes browser PWA installation from native packages for every platform', async () => {
@@ -34,6 +35,7 @@ test('README distinguishes browser PWA installation from native packages for eve
   assert.match(section, /浏览器提供的 PWA 安装[^。]*不是 Android APK、macOS DMG 或 Windows EXE 原生安装包/);
   assert.match(section, /Android 手机和平板[^\n]*Chrome[^\n]*(安装应用|添加到主屏幕)/);
   assert.match(section, /Windows 和 macOS[^\n]*(Chrome 或 Edge)[^\n]*安装图标/);
+  assert.match(section, /macOS Sonoma 14 或更新版本[^\n]*Safari 17 或更新版本[^\n]*“文件”[^\n]*“添加到程序坞”/);
   assert.match(section, /iPhone 和 iPad[^\n]*Safari[^\n]*分享[^\n]*添加到主屏幕/);
 });
 

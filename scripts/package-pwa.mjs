@@ -1,8 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { copyFile, lstat, mkdir, rm } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, realpath, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
 import { PWA_ASSETS } from '../pwa-assets.js';
+import { assertPwaCacheVersion } from './pwa-revision.mjs';
 
 export const PACKAGE_DIRECTORY_NAME = 'planet-engineering-fleet-pwa';
 
@@ -13,11 +14,98 @@ function rejectUnsafeEntry(entry, seenEntries) {
   const segments = entry.split(/[\\/]+/);
   if (segments.includes('..')) throw new Error(`PWA 资源路径不能包含 ..：${entry}`);
 
-  const normalizedEntry = entry.replace(/^\.\//, '');
   const comparableEntry = segments.filter((segment) => segment && segment !== '.').join('/');
   if (seenEntries.has(comparableEntry)) throw new Error(`PWA 资源路径重复：${entry}`);
   seenEntries.add(comparableEntry);
-  return normalizedEntry;
+  return comparableEntry;
+}
+
+async function inspectDirectory(path, label) {
+  const resolvedPath = resolve(path);
+  let stats;
+  try {
+    stats = await lstat(resolvedPath);
+  } catch (error) {
+    if (error.code === 'ENOENT') throw new Error(`${label}不存在：${resolvedPath}`);
+    throw error;
+  }
+  if (stats.isSymbolicLink()) throw new Error(`${label}不能是符号链接：${resolvedPath}`);
+  if (!stats.isDirectory()) throw new Error(`${label}必须是目录：${resolvedPath}`);
+  return { canonicalPath: await realpath(resolvedPath), resolvedPath };
+}
+
+async function rejectSymlinkedDirectoryComponents(path, label, { allowMissingTail = false } = {}) {
+  const resolvedPath = resolve(path);
+  const root = parse(resolvedPath).root;
+  const segments = relative(root, resolvedPath).split(sep).filter(Boolean);
+  let currentPath = root;
+
+  for (const segment of segments) {
+    currentPath = join(currentPath, segment);
+    let stats;
+    try {
+      stats = await lstat(currentPath);
+    } catch (error) {
+      if (allowMissingTail && error.code === 'ENOENT') return;
+      if (error.code === 'ENOENT') throw new Error(`${label}不存在：${currentPath}`);
+      throw error;
+    }
+    if (stats.isSymbolicLink()) throw new Error(`${label}路径不能包含符号链接：${currentPath}`);
+    if (!stats.isDirectory()) throw new Error(`${label}路径必须由目录组成：${currentPath}`);
+  }
+}
+
+async function inspectOutputDirectory(path, label) {
+  await rejectSymlinkedDirectoryComponents(path, label);
+  return inspectDirectory(path, label);
+}
+
+async function resolveSourceFile(canonicalProjectRoot, relativePath, entry) {
+  const segments = relativePath.split('/');
+  let sourcePath = canonicalProjectRoot;
+
+  for (const [index, segment] of segments.entries()) {
+    sourcePath = join(sourcePath, segment);
+    let stats;
+    try {
+      stats = await lstat(sourcePath);
+    } catch (error) {
+      if (error.code === 'ENOENT') throw new Error(`PWA 资源缺失：${entry}`);
+      throw error;
+    }
+    if (stats.isSymbolicLink()) throw new Error(`PWA 资源路径不能包含符号链接：${entry}`);
+    if (index < segments.length - 1 && !stats.isDirectory()) {
+      throw new Error(`PWA 资源父路径必须是目录：${entry}`);
+    }
+    if (index === segments.length - 1) {
+      if (stats.isDirectory()) throw new Error(`PWA 资源不能是目录：${entry}`);
+      if (!stats.isFile()) throw new Error(`PWA 资源必须是普通文件：${entry}`);
+    }
+  }
+
+  const canonicalSourcePath = await realpath(sourcePath);
+  ensureWithin(canonicalProjectRoot, canonicalSourcePath, 'PWA 资源');
+  return canonicalSourcePath;
+}
+
+async function revalidateDeletionTarget(outputRootState) {
+  const currentOutputRoot = await inspectOutputDirectory(outputRootState.resolvedPath, '输出目录');
+  if (currentOutputRoot.canonicalPath !== outputRootState.canonicalPath) {
+    throw new Error('输出目录在打包过程中发生变化');
+  }
+
+  const deletionTarget = join(currentOutputRoot.canonicalPath, PACKAGE_DIRECTORY_NAME);
+  ensureWithin(currentOutputRoot.canonicalPath, deletionTarget, '发布目录');
+  try {
+    const stats = await lstat(deletionTarget);
+    if (stats.isSymbolicLink()) throw new Error(`发布目录不能是符号链接：${deletionTarget}`);
+    if (await realpath(deletionTarget) !== deletionTarget) {
+      throw new Error(`发布目录规范路径无效：${deletionTarget}`);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  return deletionTarget;
 }
 
 function ensureWithin(parent, target, label) {
@@ -29,24 +117,14 @@ function ensureWithin(parent, target, label) {
 
 export async function collectPackageEntries(projectRoot, assets = PWA_ASSETS) {
   const resolvedProjectRoot = resolve(projectRoot);
+  const projectRootStats = await inspectDirectory(resolvedProjectRoot, '项目目录');
   const seenEntries = new Set();
   const entries = [];
 
   for (const entry of assets) {
     const relativePath = rejectUnsafeEntry(entry, seenEntries);
     if (entry === './') continue;
-    const sourcePath = resolve(resolvedProjectRoot, relativePath);
-    ensureWithin(resolvedProjectRoot, sourcePath, 'PWA 资源');
-
-    let sourceStats;
-    try {
-      sourceStats = await lstat(sourcePath);
-    } catch (error) {
-      if (error.code === 'ENOENT') throw new Error(`PWA 资源缺失：${entry}`);
-      throw error;
-    }
-    if (sourceStats.isSymbolicLink()) throw new Error(`PWA 资源不能是符号链接：${entry}`);
-    if (sourceStats.isDirectory()) throw new Error(`PWA 资源不能是目录：${entry}`);
+    const sourcePath = await resolveSourceFile(projectRootStats.canonicalPath, relativePath, entry);
     entries.push({ relativePath, sourcePath });
   }
 
@@ -57,15 +135,19 @@ export async function buildPwaDirectory({ projectRoot, outputRoot }) {
   const resolvedOutputRoot = resolve(outputRoot);
   const packageDirectory = resolve(resolvedOutputRoot, PACKAGE_DIRECTORY_NAME);
   ensureWithin(resolvedOutputRoot, packageDirectory, '发布目录');
-  const entries = await collectPackageEntries(projectRoot);
 
+  await rejectSymlinkedDirectoryComponents(resolvedOutputRoot, '输出目录', { allowMissingTail: true });
   await mkdir(resolvedOutputRoot, { recursive: true });
-  await rm(packageDirectory, { recursive: true, force: true });
-  await mkdir(packageDirectory, { recursive: true });
+  const outputRootState = await inspectOutputDirectory(resolvedOutputRoot, '输出目录');
+  const entries = await collectPackageEntries(projectRoot);
+  await assertPwaCacheVersion(entries);
+  const canonicalPackageDirectory = await revalidateDeletionTarget(outputRootState);
+  await rm(canonicalPackageDirectory, { recursive: true, force: true });
+  await mkdir(canonicalPackageDirectory);
 
   for (const { relativePath, sourcePath } of entries) {
-    const destinationPath = resolve(packageDirectory, relativePath);
-    ensureWithin(packageDirectory, destinationPath, 'PWA 资源');
+    const destinationPath = resolve(canonicalPackageDirectory, relativePath);
+    ensureWithin(canonicalPackageDirectory, destinationPath, 'PWA 资源');
     await mkdir(join(destinationPath, '..'), { recursive: true });
     await copyFile(sourcePath, destinationPath);
   }
@@ -80,10 +162,15 @@ export async function createPwaZip({ outputRoot, packageDirectory }) {
     throw new Error('ZIP 打包目录必须是固定的发布目录');
   }
 
-  const zipPath = resolve(resolvedOutputRoot, `${PACKAGE_DIRECTORY_NAME}.zip`);
+  const outputRootState = await inspectOutputDirectory(resolvedOutputRoot, '输出目录');
+  const canonicalPackageDirectory = await revalidateDeletionTarget(outputRootState);
+  const packageStats = await lstat(canonicalPackageDirectory);
+  if (!packageStats.isDirectory()) throw new Error('ZIP 打包目标必须是目录');
+
+  const zipPath = resolve(outputRootState.canonicalPath, `${PACKAGE_DIRECTORY_NAME}.zip`);
   await rm(zipPath, { force: true });
   const result = spawnSync('zip', ['-qr', zipPath, PACKAGE_DIRECTORY_NAME], {
-    cwd: resolvedOutputRoot,
+    cwd: outputRootState.canonicalPath,
     encoding: 'utf8',
   });
   if (result.error?.code === 'ENOENT') {

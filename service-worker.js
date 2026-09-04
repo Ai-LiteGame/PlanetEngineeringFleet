@@ -1,44 +1,87 @@
 import { PWA_ASSETS, PWA_CACHE_PREFIX, PWA_CACHE_VERSION } from './pwa-assets.js';
 
-export const PWA_CACHE_NAME = `${PWA_CACHE_PREFIX}-${PWA_CACHE_VERSION}`;
+function normalizedScopePath(appScope) {
+  const pathname = new URL(appScope).pathname;
+  return pathname.endsWith('/') ? pathname : `${pathname}/`;
+}
 
-export function shouldHandleRequest(request, origin) {
-  return request.method === 'GET' && new URL(request.url).origin === origin;
+function cacheNamespaceForScope(appScope) {
+  return `${PWA_CACHE_PREFIX}-${encodeURIComponent(normalizedScopePath(appScope))}-`;
+}
+
+export function getPwaCacheName(appScope) {
+  return `${cacheNamespaceForScope(appScope)}${PWA_CACHE_VERSION}`;
+}
+
+export const PWA_CACHE_NAME = getPwaCacheName('https://pwa.invalid/');
+
+export function shouldHandleRequest(request, appScope) {
+  if (request.method !== 'GET') return false;
+
+  try {
+    const requestUrl = new URL(request.url);
+    const scopeUrl = new URL(appScope);
+    if (requestUrl.origin !== scopeUrl.origin) return false;
+    const scopePath = normalizedScopePath(appScope);
+    return requestUrl.pathname === scopeUrl.pathname || requestUrl.pathname.startsWith(scopePath);
+  } catch {
+    return false;
+  }
 }
 
 export async function installApp(cacheStorage, baseUrl) {
-  const cache = await cacheStorage.open(PWA_CACHE_NAME);
+  const cache = await cacheStorage.open(getPwaCacheName(baseUrl));
   await cache.addAll(PWA_ASSETS.map((path) => new URL(path, baseUrl).href));
 }
 
-export async function activateApp(cacheStorage) {
+export async function activateApp(cacheStorage, baseUrl) {
+  const cacheNamespace = cacheNamespaceForScope(baseUrl);
+  const cacheName = getPwaCacheName(baseUrl);
   const names = await cacheStorage.keys();
   await Promise.all(names
-    .filter((name) => name.startsWith(`${PWA_CACHE_PREFIX}-`) && name !== PWA_CACHE_NAME)
+    .filter((name) => name.startsWith(cacheNamespace) && name !== cacheName)
     .map((name) => cacheStorage.delete(name)));
 }
 
 export async function respondToRequest(request, { cacheStorage, fetchRequest, baseUrl }) {
-  const origin = new URL(baseUrl).origin;
-  if (!shouldHandleRequest(request, origin)) return fetchRequest(request);
+  if (!shouldHandleRequest(request, baseUrl)) return fetchRequest(request);
 
-  const cachedResponse = await cacheStorage.match(request);
-  if (cachedResponse) return cachedResponse;
-
+  const cacheName = getPwaCacheName(baseUrl);
+  let cache;
   try {
-    const response = await fetchRequest(request);
-    if (response.ok && ['basic', 'default'].includes(response.type)) {
-      const cache = await cacheStorage.open(PWA_CACHE_NAME);
-      await cache.put(request, response.clone());
-    }
-    return response;
+    cache = await cacheStorage.open(cacheName);
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) return cachedResponse;
+  } catch {
+    cache = undefined;
+  }
+
+  let response;
+  try {
+    response = await fetchRequest(request);
   } catch (error) {
     if (request.mode === 'navigate') {
-      const fallback = await cacheStorage.match(new URL('./index.html', baseUrl).href);
-      if (fallback) return fallback;
+      try {
+        cache ??= await cacheStorage.open(cacheName);
+        const fallback = await cache.match(new URL('./index.html', baseUrl).href);
+        if (fallback) return fallback;
+      } catch {
+        // The original network error remains authoritative when cache lookup also fails.
+      }
     }
     throw error;
   }
+
+  if (response.ok && ['basic', 'default'].includes(response.type)) {
+    try {
+      const cachedCopy = response.clone();
+      cache ??= await cacheStorage.open(cacheName);
+      await cache.put(request, cachedCopy);
+    } catch {
+      // Runtime caching is best-effort; the successful network response remains usable.
+    }
+  }
+  return response;
 }
 
 if (
@@ -51,10 +94,10 @@ if (
     event.waitUntil(installApp(worker.caches, worker.registration.scope).then(() => worker.skipWaiting()));
   });
   worker.addEventListener('activate', (event) => {
-    event.waitUntil(activateApp(worker.caches).then(() => worker.clients.claim()));
+    event.waitUntil(activateApp(worker.caches, worker.registration.scope).then(() => worker.clients.claim()));
   });
   worker.addEventListener('fetch', (event) => {
-    if (shouldHandleRequest(event.request, worker.location.origin)) {
+    if (shouldHandleRequest(event.request, worker.registration.scope)) {
       event.respondWith(respondToRequest(event.request, {
         cacheStorage: worker.caches,
         fetchRequest: worker.fetch.bind(worker),

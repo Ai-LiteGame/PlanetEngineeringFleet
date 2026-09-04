@@ -4,7 +4,11 @@ export async function registerServiceWorker(
 ) {
   if (!container?.register) return null;
   try {
-    return await container.register('./service-worker.js', { scope: './', type: 'module' });
+    return await container.register('./service-worker.js', {
+      scope: './',
+      type: 'module',
+      updateViaCache: 'none',
+    });
   } catch (error) {
     logger?.warn?.('离线功能暂时不可用。', error);
     return null;
