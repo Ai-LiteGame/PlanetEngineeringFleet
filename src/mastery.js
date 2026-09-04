@@ -27,7 +27,7 @@ function isMastered(record) {
 export function skillStatus(record, now) {
   if (record.exposures === 0) return 'unseen';
   if (record.nextReviewAt !== null && now >= record.nextReviewAt) return 'reviewDue';
-  if (isMastered(record) || record.status === 'mastered') return 'mastered';
+  if (isMastered(record)) return 'mastered';
   return 'practicing';
 }
 
@@ -36,10 +36,10 @@ export function recordSkillAttempt(record, attempt, now) {
     ...record,
     independentLessonIds: [...record.independentLessonIds],
     exposures: record.exposures + 1,
-    lastSeenAt: now,
   };
 
   if (isIndependentCorrect(attempt)) {
+    next.lastSeenAt = now;
     next.independentCorrect += 1;
     if (!next.independentLessonIds.includes(attempt.lessonId)) {
       next.independentLessonIds.push(attempt.lessonId);

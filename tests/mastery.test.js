@@ -23,6 +23,30 @@ test('mastery needs three independent lessons and a spaced review', () => {
   assert.equal(skillStatus(record, 1000000000), 'mastered');
 });
 
+test('a later incorrect attempt cannot create the required independent spacing', () => {
+  let record = createSkillRecord();
+  record = recordSkillAttempt(record, { correct: true, assistance: 0, lessonId: 'lesson-001' }, 1000);
+  record = recordSkillAttempt(record, { correct: true, assistance: 0, lessonId: 'lesson-002' }, 1000 + 3600000);
+  record = recordSkillAttempt(record, { correct: true, assistance: 0, lessonId: 'lesson-003' }, 1000 + (2 * 3600000));
+  record = recordSkillAttempt(record, { correct: false, assistance: 0, lessonId: 'lesson-004' }, 1000 + DAY);
+
+  assert.equal(skillStatus(record, 1000 + DAY), 'practicing');
+});
+
+test('persisted mastered status cannot bypass independent mastery evidence', () => {
+  const record = {
+    ...createSkillRecord(),
+    exposures: 3,
+    independentCorrect: 3,
+    independentLessonIds: ['lesson-001', 'lesson-002'],
+    firstIndependentAt: 1000,
+    lastSeenAt: 1000 + DAY,
+    status: 'mastered',
+  };
+
+  assert.equal(skillStatus(record, 1000 + DAY), 'practicing');
+});
+
 test('due and assisted skills sort ahead of mastered maintenance', () => {
   const base = createSkillRecord();
   const progress = {
