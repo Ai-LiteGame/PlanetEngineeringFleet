@@ -15,7 +15,7 @@
 - 目标用户为幼儿园大班儿童，课程可延续到小学一年级结束。
 - 完整规模必须为 6 个区域、90 个工程项目、270 节微课程。
 - 内容库必须包含正好 700 个去重汉字、300 个去重英语词汇和 100 个去重交流句型。
-- 单节包含约 12 个互动，预计 8–12 分钟；新旧内容比例约 1:2。
+- 单节包含约 12 个互动，预计 8–12 分钟；只有在每科至少有 2 个符合条件的已见技能并另有 2 个热身技能时，新旧内容比例才保持约 1:2，历史不足时由当前同科内容补足。
 - 大班基础、幼小衔接和一年级拓展分别占 90 节。
 - 汉字只训练识读与理解，不进行书写评分；英语不录音、不上传、不进行发音评分。
 - 答错不扣分、不显示失败画面；提示逐级增加并允许儿童最终完成。
@@ -197,7 +197,10 @@ test('lesson content stays within its tier', () => {
       assert.equal(lesson.newEnglishWordIds.length, 0);
       assert.equal(lesson.newEnglishPatternIds.length, 0);
     } else {
-      assert.equal(lesson.newChineseIds.length >= 3 && lesson.newChineseIds.length <= 4, true);
+      const allowedChineseCount = lesson.tier === 1
+        ? lesson.newChineseIds.length >= 3 && lesson.newChineseIds.length <= 4
+        : lesson.newChineseIds.length >= 3 && lesson.newChineseIds.length <= 5;
+      assert.equal(allowedChineseCount, true);
       assert.equal(lesson.newEnglishWordIds.length >= 1 && lesson.newEnglishWordIds.length <= 2, true);
     }
     assert.equal([1, 2, 3].includes(lesson.tier), true);
@@ -231,7 +234,7 @@ export const REGIONS = Object.freeze([
 
 - [ ] **Step 4: 生成课程并验证所有内容仅分配一次作为新知识**
 
-`LESSONS` 按项目展开三阶段课程。内容切片使用累计配额，所有 700/300/100 项只在 `learn` 或 `build` 课程中标记一次为 `new`，后续由调度器复习。`review` 课程的三个新内容数组均为空；句型并非每节都有，无新句型时 `newEnglishPatternIds` 为空数组。
+`LESSONS` 按项目展开三阶段课程。内容切片使用累计配额，所有 700/300/100 项只在 `learn` 或 `build` 课程中标记一次为 `new`，后续由调度器复习。阶段 2、3 各有且仅有 10 节引入 5 个新汉字，其余引入课为 3–4 个；这是每阶段准确容纳 250 字且保持 `review` 只复习的配额。`review` 课程的三个新内容数组均为空；句型并非每节都有，无新句型时 `newEnglishPatternIds` 为空数组。
 
 Run: `node --test tests/course-catalog.test.js tests/curriculum-content.test.js`
 
@@ -358,8 +361,14 @@ test('version one progress migrates without losing sound and mastered skills', (
 });
 
 test('lesson snapshot round trips only stable state', () => {
-  saveActiveLesson(storage, { lessonId: 'lesson-014', interactionIndex: 4, seed: 17 });
-  assert.deepEqual(loadActiveLesson(storage), { lessonId: 'lesson-014', interactionIndex: 4, seed: 17 });
+  const answers = [{
+    interactionId: 'lesson-014:chinese:1', subject: 'chinese', skillIds: ['zh-001'],
+    correct: true, assistance: 0, attempts: 0,
+  }];
+  saveActiveLesson(storage, { lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answers });
+  assert.deepEqual(loadActiveLesson(storage), {
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answers,
+  });
 });
 
 test('export produces parseable version two JSON', () => {
@@ -388,7 +397,7 @@ Expected: FAIL because version 2 APIs are absent and current parser rejects vers
 
 - [ ] **Step 4: 实现快照、幂等奖励字段和 JSON 导出并运行测试**
 
-活动快照只保存 `lessonId`、`interactionIndex` 和 `seed`。荣誉 ID 使用集合语义去重。导出使用两个空格缩进并写入 `exportedAt`，不包含活动快照、音频或浏览器信息。
+活动快照保存 `lessonId`、`interactionIndex`、经过字段白名单清理的 `answers` 和 `seed`；`seed` 同时是不可变的课程生成时间戳，恢复时用于稳定出题及到期内容选择。荣誉 ID 使用集合语义去重。导出使用两个空格缩进并写入 `exportedAt`，不包含活动快照、音频或浏览器信息。
 
 Run: `node --test tests/storage.test.js`
 
@@ -454,7 +463,7 @@ Expected: FAIL because lesson APIs and factories are absent.
 
 - [ ] **Step 3: 实现确定性题目工厂**
 
-实现汉字听音辨认、词语配对、英语听音选图、句型情境、计数、加减、比较、规律、空间和综合配送工厂。干扰项必须来自同阶段且不能等于答案。相同 `lesson + seed + progress` 必须生成相同互动顺序。
+实现汉字听音辨认、词语配对、英语听音选图、句型情境、计数、加减、比较、规律、空间和综合配送工厂。干扰项必须来自同阶段且不能等于答案。相同 `lesson + seed + progress` 必须生成相同互动顺序。约 1:2 的新旧比例只在每科至少有 2 个符合条件的已见技能并另有 2 个热身技能时适用；否则以当前同科内容补足固定的学科结构。
 
 - [ ] **Step 4: 替换旧单局状态机并保持提交保护**
 

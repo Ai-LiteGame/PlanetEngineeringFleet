@@ -434,7 +434,7 @@ button.project-node { cursor: pointer; }
 
 .parent-tabs { display: flex; gap: 2px; margin-top: 16px; border-bottom: 2px solid var(--line); }
 
-.parent-tabs button { min-width: 120px; min-height: 48px; padding: 0 18px; border: 0; border-bottom: 4px solid transparent; background: transparent; color: var(--muted-ink); font-weight: 850; cursor: pointer; }
+.parent-tabs button { min-width: 120px; min-height: 56px; padding: 0 18px; border: 0; border-bottom: 4px solid transparent; background: transparent; color: var(--muted-ink); font-weight: 850; cursor: pointer; }
 
 .parent-tabs button[aria-selected="true"] { border-bottom-color: var(--blue); color: var(--ink); }
 
@@ -464,9 +464,9 @@ button.project-node { cursor: pointer; }
 
 .course-filters label { min-width: 0; display: grid; gap: 5px; color: var(--muted-ink); font-size: 12px; font-weight: 800; }
 
-.course-filters select { width: 100%; min-height: 42px; padding: 0 34px 0 10px; border: 1px solid #afc5c2; border-radius: 6px; background: white; color: var(--ink); }
+.course-filters select { width: 100%; min-height: 56px; padding: 0 34px 0 10px; border: 1px solid #afc5c2; border-radius: 6px; background: white; color: var(--ink); }
 
-.export-progress { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: 0 0 auto; padding-inline: 16px; }
+.export-progress { min-height: 56px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: 0 0 auto; padding-inline: 16px; }
 
 .export-progress .ui-icon { width: 19px; height: 19px; }
 

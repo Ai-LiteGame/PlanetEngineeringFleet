@@ -6,15 +6,19 @@ import {
   LEGACY_STORAGE_KEY,
   STORAGE_KEY,
   clearActiveLesson,
+  clearActiveStage,
   createProgressV2,
   exportProgress,
   getMigrationBackup,
   loadActiveLesson,
+  loadActiveStage,
   loadLegacyProgress,
   loadProgress,
   parseProgress,
   recordLessonViewed,
+  resetProgress,
   saveActiveLesson,
+  saveActiveStage,
   saveLegacyProgress,
   saveProgress,
 } from '../src/storage.js';
@@ -171,7 +175,7 @@ test('a live legacy session saves its completed-session progress without v2 norm
   assert.deepEqual(loadLegacyProgress(storage), sessionProgress);
 });
 
-test('a throwing localStorage getter falls back to unavailable in-memory progress', () => {
+test('every storage API handles a throwing localStorage getter', () => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -179,7 +183,29 @@ test('a throwing localStorage getter falls back to unavailable in-memory progres
   });
 
   try {
-    assert.equal(loadProgress().storageAvailable, false);
+    const progress = createProgressV2();
+    const cases = [
+      ['loadProgress', () => loadProgress(), (value) => assert.equal(value.storageAvailable, false)],
+      ['saveProgress', () => saveProgress(undefined, progress), (value) => assert.equal(value, false)],
+      ['loadLegacyProgress', () => loadLegacyProgress(), (value) => assert.equal(value.version, 1)],
+      ['saveLegacyProgress', () => saveLegacyProgress(undefined, {
+        version: 1, sessionsCompleted: 0, bridgeStage: 0, soundEnabled: true, skills: {},
+      }), (value) => assert.equal(value, false)],
+      ['resetProgress', () => resetProgress(), (value) => assert.equal(value, false)],
+      ['saveActiveLesson', () => saveActiveLesson(undefined, {
+        lessonId: 'lesson-001', interactionIndex: 0, seed: 1, answers: [],
+      }), (value) => assert.equal(value, false)],
+      ['loadActiveLesson', () => loadActiveLesson(), (value) => assert.equal(value, null)],
+      ['clearActiveLesson', () => clearActiveLesson(), (value) => assert.equal(value, false)],
+      ['saveActiveStage', () => saveActiveStage(undefined, { seed: 1, stage: 'chinese' }), (value) => assert.equal(value, false)],
+      ['loadActiveStage', () => loadActiveStage(), (value) => assert.equal(value, null)],
+      ['clearActiveStage', () => clearActiveStage(), (value) => assert.equal(value, false)],
+    ];
+
+    for (const [name, invoke, verify] of cases) {
+      assert.doesNotThrow(() => verify(invoke()), name);
+    }
+    assert.equal(progress.storageAvailable, false);
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
     else delete globalThis.localStorage;

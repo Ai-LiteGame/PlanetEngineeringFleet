@@ -211,6 +211,14 @@ test('mobile CSS keeps lesson progress visible and reset control touch-sized', a
   assert.match(css, /#reset-progress\s*{[^}]*min-height:\s*56px/);
 });
 
+test('adult course controls meet the minimum touch target height', async () => {
+  const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+
+  assert.match(css, /\.parent-tabs button\s*{[^}]*min-height:\s*56px/);
+  assert.match(css, /\.course-filters select\s*{[^}]*min-height:\s*56px/);
+  assert.match(css, /\.export-progress\s*{[^}]*min-height:\s*56px/);
+});
+
 test('adult area exposes course and settings tabs plus JSON export controls', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 

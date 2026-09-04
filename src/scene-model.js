@@ -34,11 +34,10 @@ const projectsByRegion = new Map(REGIONS.map((region) => [
   PROJECTS.filter((project) => project.regionId === region.id),
 ]));
 
-const projectForOrdinal = (regionId, projectOrdinal) => (
-  PROJECTS.find((project) => (
-    project.regionId === regionId && project.ordinal === projectOrdinal
-  )) ?? projectsByRegion.get(regionId)[projectOrdinal - 1] ?? null
-);
+const projectForOrdinal = (regionId, projectOrdinal) => {
+  const project = PROJECTS[projectOrdinal - 1] ?? null;
+  return project?.regionId === regionId ? project : null;
+};
 
 const visibleUpgrades = (regionId, completedProjectIds) => {
   const regionalProjectIds = new Set(
@@ -67,6 +66,9 @@ export function getSceneState(regionId, projectOrdinal, interaction = {}, comple
   }
 
   const project = projectForOrdinal(regionId, projectOrdinal);
+  if (!project) {
+    throw new RangeError(`Project ordinal ${projectOrdinal} does not belong to region ${regionId}`);
+  }
   const action = interaction?.action ?? ACTION_BY_VEHICLE[project?.vehicle];
   const actionState = ACTION_STATE[action];
   if (!actionState) {
