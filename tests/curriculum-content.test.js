@@ -44,6 +44,26 @@ test('every curriculum item satisfies its schema', () => {
   assert.equal(MATH_SKILLS.every(validateMathSkill), true);
 });
 
+test('Chinese items use specific word associations and varied matching contexts', () => {
+  const naturalCharacterCompounds = new Set(['文字', '写字', '名字', '数字']);
+  assert.equal(
+    CHINESE_ITEMS
+      .filter(({ char, word }) => word === `${char}字`)
+      .every(({ word }) => naturalCharacterCompounds.has(word)),
+    true,
+  );
+  assert.equal(CHINESE_ITEMS.every(({ word }) => Array.from(word).length >= 2), true);
+  assert.equal(CHINESE_ITEMS.every(({ word, example }) => example.includes(word)), true);
+  assert.equal(
+    CHINESE_ITEMS.some(({ char, example }) => example === `我在课本里认识${char}字。`),
+    false,
+  );
+  assert.equal(new Set(CHINESE_ITEMS.map(({ example }) => example)).size, 700);
+  assert.deepEqual(CHINESE_ITEMS[418], {
+    id: 'zh-419', char: '银', word: '金银', example: '老师用金银讲解不同的金属。', tier: 2,
+  });
+});
+
 test('math inventory covers every required learning domain', () => {
   const domains = new Set(MATH_SKILLS.map((item) => item.domain));
   for (const domain of [
