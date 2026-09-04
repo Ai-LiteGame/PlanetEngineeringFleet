@@ -8,6 +8,7 @@ import {
   LESSONS,
 } from '../src/curriculum/index.js';
 import { buildLessonInteractions } from '../src/question-factories.js';
+import { createSkillRecord } from '../src/mastery.js';
 import { createProgressV2 } from '../src/storage.js';
 
 const languageTierById = new Map([
@@ -34,6 +35,33 @@ test('same lesson seed and progress produce the same interaction order', () => {
   assert.notDeepEqual(first, buildLessonInteractions(LESSONS[0], progress, 43, 1000));
 });
 
+test('lessons allocate about one current interaction for every two review interactions', () => {
+  const lesson = LESSONS.find((item) => item.id === 'lesson-004');
+  const eligibleIds = [...new Set(LESSONS.slice(0, 2).flatMap((item) => [
+    ...item.newChineseIds,
+    ...item.newEnglishWordIds,
+    ...item.newEnglishPatternIds,
+    item.mathSkillId,
+  ]))];
+  const progress = createProgressV2({
+    skills: Object.fromEntries(eligibleIds.map((id) => [id, {
+      ...createSkillRecord(), exposures: 1, status: 'practicing',
+    }])),
+  });
+  const currentIds = new Set([
+    ...lesson.newChineseIds,
+    ...lesson.newEnglishWordIds,
+    ...lesson.newEnglishPatternIds,
+    lesson.mathSkillId,
+  ]);
+
+  const interactions = buildLessonInteractions(lesson, progress, 5, 1000);
+  const currentCount = interactions.filter((item) => item.skillIds.some((id) => currentIds.has(id))).length;
+  const reviewCount = interactions.filter((item) => item.skillIds.every((id) => !currentIds.has(id))).length;
+
+  assert.deepEqual({ currentCount, reviewCount }, { currentCount: 4, reviewCount: 8 });
+});
+
 test('language distractors are distinct from the answer and stay in the lesson tier', () => {
   const lesson = LESSONS.find((item) => item.tier === 2 && item.phase === 'learn');
   const interactions = buildLessonInteractions(lesson, createProgressV2(), 7, 1000);
@@ -46,6 +74,30 @@ test('language distractors are distinct from the answer and stay in the lesson t
   }
 });
 
+test('English image choices use unique pictograms rather than duplicated translations', () => {
+  let imageInteractionCount = 0;
+  for (const lesson of LESSONS) {
+    const interactions = buildLessonInteractions(lesson, createProgressV2(), 7, 1000);
+    for (const interaction of interactions.filter((item) => item.kind === 'english-listen-image')) {
+      imageInteractionCount += 1;
+      const visuals = interaction.choices.map((item) => item.visual);
+      assert.equal(interaction.choices.every((item) => item.visual !== item.label), true, interaction.id);
+      assert.equal(new Set(visuals).size, visuals.length, interaction.id);
+    }
+  }
+  assert.equal(imageInteractionCount > 0, true);
+});
+
+test('abstract English words use context choices instead of image choices', () => {
+  const interactions = buildLessonInteractions(LESSONS[0], createProgressV2(), 7, 1000);
+  const helloInteractions = interactions.filter((item) => (
+    item.subject === 'english' && item.skillIds.includes('en-word-001')
+  ));
+
+  assert.equal(helloInteractions.length > 0, true);
+  assert.equal(helloInteractions.every((item) => item.kind === 'english-context-choice'), true);
+});
+
 test('word-match distractors never duplicate the displayed answer label', () => {
   const lesson = LESSONS.find((item) => item.id === 'lesson-047');
   const interactions = buildLessonInteractions(lesson, createProgressV2(), 5, 1000);
@@ -56,12 +108,40 @@ test('word-match distractors never duplicate the displayed answer label', () => 
   }
 });
 
+test('word-match questions have only one choice containing the prompted character', () => {
+  for (const lesson of LESSONS) {
+    for (const seed of [2, 9, 22]) {
+      const interactions = buildLessonInteractions(lesson, createProgressV2(), seed, 1000);
+      for (const interaction of interactions.filter((item) => item.kind === 'chinese-word-match')) {
+        const character = interaction.prompt.match(/“(.)”/)[1];
+        const semanticAnswers = interaction.choices.filter((item) => item.label.includes(character));
+        assert.deepEqual(semanticAnswers.map((item) => item.id), [interaction.answerId], interaction.id);
+      }
+    }
+  }
+});
+
 test('mixed delivery count distractors stay inside the lesson math range', () => {
   const interactions = buildLessonInteractions(LESSONS[0], createProgressV2(), 49, 1000);
   const countDistractor = interactions.at(-1).choices.find((item) => item.id === 'delivery-count');
   const displayedCount = Number(countDistractor.label.match(/ · (\d+) · /)[1]);
 
   assert.equal(displayedCount <= 10, true);
+});
+
+test('clock choices stay on the twelve-hour dial', () => {
+  let clockInteractionCount = 0;
+  for (const lesson of LESSONS) {
+    for (const seed of [4, 11, 29]) {
+      const interactions = buildLessonInteractions(lesson, createProgressV2(), seed, 1000);
+      for (const interaction of interactions.filter((item) => item.kind === 'math-clock')) {
+        clockInteractionCount += 1;
+        const values = interaction.choices.map((item) => Number(item.id.replace('number-', '')));
+        assert.equal(values.every((value) => value >= 1 && value <= 12), true, interaction.id);
+      }
+    }
+  }
+  assert.equal(clockInteractionCount > 0, true);
 });
 
 test('a review lesson with empty new arrays uses prior project content', () => {

@@ -364,6 +364,7 @@ function nextLessonId(progress, completedLessonIndex) {
 export function completeLesson(state, progress, now = Date.now()) {
   if (!isLessonState(state) || !state.completed || !Number.isInteger(now) || now < 0) return progress;
   if (state.completionId !== `${state.lessonId}:${state.completionCount}`) return progress;
+  if (progress?.completionIds?.includes(state.completionId)) return progress;
   const currentRecord = progress?.lessons?.[state.lessonId];
   if ((currentRecord?.completedCount ?? 0) >= state.completionCount) return progress;
 
@@ -388,6 +389,13 @@ export function completeLesson(state, progress, now = Date.now()) {
   return {
     ...viewedProgress,
     currentLessonId: nextLessonId(viewedProgress, lessonIndex),
+    completionIds: [...viewedProgress.completionIds, state.completionId],
+    lastCompletion: {
+      id: state.completionId,
+      lessonId: state.lessonId,
+      completedCount: state.completionCount,
+      effects: { clearActiveLesson: true },
+    },
     lessons: {
       ...viewedProgress.lessons,
       [state.lessonId]: {

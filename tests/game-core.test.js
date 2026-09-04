@@ -207,10 +207,18 @@ test('completing a lesson marks viewed and practiced separately and records skil
   assert.equal(progress.lessons['lesson-001'].completedCount, 1);
   assert.equal(progress.lessons['lesson-001'].status, 'practiced');
   assert.equal(Object.values(progress.skills).every((record) => record.exposures > 0), true);
+  assert.deepEqual(progress.completionIds, ['lesson-001:1']);
+  assert.deepEqual(progress.lastCompletion, {
+    id: 'lesson-001:1',
+    lessonId: 'lesson-001',
+    completedCount: 1,
+    effects: { clearActiveLesson: true },
+  });
 
   const repeated = completeLesson(state, progress, 6000);
-  assert.deepEqual(repeated, progress);
+  assert.equal(repeated, progress);
   assert.equal(repeated.lessons['lesson-001'].completedCount, 1);
+  assert.deepEqual(repeated.completionIds, ['lesson-001:1']);
   assert.equal(advance(state).screen, 'map');
 });
 

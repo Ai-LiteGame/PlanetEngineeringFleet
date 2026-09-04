@@ -5,6 +5,7 @@ import {
   ACTIVE_KEY,
   LEGACY_STORAGE_KEY,
   STORAGE_KEY,
+  clearActiveLesson,
   createProgressV2,
   exportProgress,
   getMigrationBackup,
@@ -58,10 +59,19 @@ test('version one progress migrates known skills to schedulable version two IDs'
 test('version two progress round trips while de-duplicating honor IDs', () => {
   const progress = createProgressV2();
   progress.honors = ['badge:bridge', 'badge:bridge', 'badge:crane'];
+  progress.completionIds = ['lesson-001:1', 'lesson-001:1'];
+  progress.lastCompletion = {
+    id: 'lesson-001:1',
+    lessonId: 'lesson-001',
+    completedCount: 1,
+    effects: { clearActiveLesson: true },
+  };
 
   const restored = parseProgress(JSON.stringify(progress));
 
   assert.deepEqual(restored.honors, ['badge:bridge', 'badge:crane']);
+  assert.deepEqual(restored.completionIds, ['lesson-001:1']);
+  assert.deepEqual(restored.lastCompletion, progress.lastCompletion);
   assert.equal(restored.storageAvailable, true);
 });
 
@@ -163,6 +173,14 @@ test('invalid active lesson snapshots are ignored', () => {
   const storage = memoryStorage();
   storage.setItem(ACTIVE_KEY, JSON.stringify({ lessonId: 'lesson-014', interactionIndex: -1, seed: 4 }));
 
+  assert.equal(loadActiveLesson(storage), null);
+});
+
+test('completion effects can clear the active lesson snapshot', () => {
+  const storage = memoryStorage();
+  saveActiveLesson(storage, { lessonId: 'lesson-014', interactionIndex: 4, seed: 17 });
+
+  assert.equal(clearActiveLesson(storage), true);
   assert.equal(loadActiveLesson(storage), null);
 });
 

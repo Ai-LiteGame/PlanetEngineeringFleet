@@ -29,6 +29,213 @@ const SHAPES = Object.freeze([
   { id: 'shape-square', label: '正方形', visual: '□' },
   { id: 'shape-triangle', label: '三角形', visual: '△' },
 ]);
+const ENGLISH_PICTOGRAMS = Object.freeze({
+  truck: '🚚',
+  mother: '👩',
+  father: '👨',
+  sister: '👧',
+  brother: '👦',
+  teacher: '🧑‍🏫',
+  student: '🧑‍🎓',
+  baby: '👶',
+  boy: '🧒',
+  girl: '👱‍♀️',
+  home: '🏠',
+  school: '🏫',
+  room: '🛏️',
+  door: '🚪',
+  window: '🪟',
+  book: '📖',
+  pen: '🖊️',
+  pencil: '✏️',
+  paper: '📄',
+  bag: '🎒',
+  chair: '🪑',
+  ball: '⚽',
+  toy: '🧸',
+  cat: '🐈',
+  dog: '🐕',
+  bird: '🐦',
+  fish: '🐟',
+  tree: '🌳',
+  flower: '🌷',
+  sun: '☀️',
+  moon: '🌙',
+  star: '⭐',
+  rain: '🌧️',
+  water: '💧',
+  milk: '🥛',
+  rice: '🍚',
+  bread: '🍞',
+  apple: '🍎',
+  banana: '🍌',
+  cake: '🍰',
+  red: '🟥',
+  blue: '🟦',
+  yellow: '🟨',
+  green: '🟩',
+  black: '⬛',
+  white: '⬜',
+  one: '1️⃣',
+  two: '2️⃣',
+  three: '3️⃣',
+  four: '4️⃣',
+  five: '5️⃣',
+  happy: '😀',
+  sad: '😢',
+  hot: '🔥',
+  cold: '🧊',
+  run: '🏃',
+  walk: '🚶',
+  jump: '🤸',
+  sit: '🧎',
+  stand: '🧍',
+  look: '👀',
+  eat: '🍽️',
+  drink: '🧃',
+  sleep: '😴',
+  play: '🛝',
+  help: '🤝',
+  six: '6️⃣',
+  seven: '7️⃣',
+  eight: '8️⃣',
+  nine: '9️⃣',
+  ten: '🔟',
+  eleven: '⑪',
+  twelve: '⑫',
+  morning: '🌅',
+  afternoon: '🌞',
+  evening: '🌆',
+  spring: '🌱',
+  summer: '🏖️',
+  autumn: '🍂',
+  winter: '⛄',
+  cloud: '☁️',
+  wind: '🌬️',
+  snow: '❄️',
+  sky: '🌌',
+  river: '🏞️',
+  lake: '🌊',
+  mountain: '⛰️',
+  grass: '🌿',
+  leaf: '🍃',
+  seed: '🌰',
+  garden: '🏡',
+  rabbit: '🐇',
+  panda: '🐼',
+  tiger: '🐅',
+  elephant: '🐘',
+  monkey: '🐒',
+  duck: '🦆',
+  chicken: '🐓',
+  horse: '🐎',
+  bus: '🚌',
+  car: '🚗',
+  train: '🚆',
+  bike: '🚲',
+  boat: '⛵',
+  plane: '✈️',
+  road: '🛣️',
+  bridge: '🌉',
+  station: '🚉',
+  ticket: '🎫',
+  build: '🏗️',
+  draw: '🎨',
+  read: '📚',
+  write: '📝',
+  count: '🔢',
+  carry: '📦',
+  wash: '🧼',
+  careful: '⚠️',
+  safe: '🦺',
+  fast: '💨',
+  slow: '🐌',
+  round: '⚪',
+  square: '◻️',
+  triangle: '🔺',
+  left: '←',
+  right: '→',
+  up: '↑',
+  down: '↓',
+  orange: '🍊',
+  grape: '🍇',
+  noodle: '🍜',
+  soup: '🥣',
+  egg: '🥚',
+  cheese: '🧀',
+  spoon: '🥄',
+  cup: '☕',
+  plate: '🍽️',
+  thirteen: '⑬',
+  fourteen: '⑭',
+  fifteen: '⑮',
+  twenty: '⑳',
+  hundred: '100',
+  minute: '⏱️',
+  hour: '🕐',
+  week: '🗓️',
+  month: '📅',
+  rainbow: '🌈',
+  storm: '⛈️',
+  forest: '🌲',
+  ocean: '🌊',
+  island: '🏝️',
+  rock: '🪨',
+  soil: '🟫',
+  plant: '🪴',
+  bamboo: '🎋',
+  butterfly: '🦋',
+  bee: '🐝',
+  frog: '🐸',
+  turtle: '🐢',
+  dolphin: '🐬',
+  penguin: '🐧',
+  whale: '🐋',
+  squirrel: '🐿️',
+  zebra: '🦓',
+  giraffe: '🦒',
+  ambulance: '🚑',
+  'fire engine': '🚒',
+  subway: '🚇',
+  taxi: '🚕',
+  helmet: '⛑️',
+  engine: '⚙️',
+  wheel: '🛞',
+  ladder: '🪜',
+  hammer: '🔨',
+  rope: '🪢',
+  brick: '🧱',
+  tower: '🗼',
+  robot: '🤖',
+  rocket: '🚀',
+  satellite: '🛰️',
+  planet: '🪐',
+  space: '🌠',
+  map: '🗺️',
+  crossing: '🚸',
+  'traffic light': '🚦',
+  repair: '🛠️',
+  measure: '📏',
+  compare: '⚖️',
+  sort: '🗂️',
+  choose: '☑️',
+  check: '✅',
+  experiment: '🧪',
+  observe: '🔍',
+  collect: '🧺',
+  recycle: '♻️',
+  protect: '🛡️',
+  electricity: '🔌',
+  battery: '🔋',
+  screen: '🖥️',
+  keyboard: '⌨️',
+  camera: '📷',
+  picture: '🖼️',
+  music: '🎵',
+  song: '🎤',
+  dance: '💃',
+  paint: '🖌️',
+});
 
 function seededRandom(seed, lessonId) {
   let value = 2166136261;
@@ -126,13 +333,16 @@ function chineseRecognition(item, random) {
 }
 
 function chineseWordMatch(item, random) {
+  const unambiguousPool = CHINESE_ITEMS.filter((entry) => (
+    entry.id === item.id || !entry.word.includes(item.char)
+  ));
   return interaction({
     kind: 'chinese-word-match',
     subject: 'chinese',
     skillIds: [item.id],
     prompt: `“${item.char}”可以组成哪个词语？`,
     speech: { text: `${item.char}可以组成哪个词语`, lang: 'zh-CN' },
-    choices: languageChoices(item, CHINESE_ITEMS, (entry) => entry.word, (entry) => entry.word, random),
+    choices: languageChoices(item, unambiguousPool, (entry) => entry.word, (entry) => entry.word, random),
     answerId: item.id,
     success: `${item.char}可以组成“${item.word}”。`,
     hint: item.example,
@@ -140,14 +350,56 @@ function chineseWordMatch(item, random) {
   });
 }
 
+function englishContextChoice(item, random) {
+  return interaction({
+    kind: 'english-context-choice',
+    subject: 'english',
+    skillIds: [item.id],
+    prompt: '听一听，选择这个词在工程对话中的意思。',
+    speech: { text: item.word, lang: 'en-US' },
+    choices: languageChoices(item, ENGLISH_WORDS, (entry) => entry.meaning, (entry) => entry.meaning, random),
+    answerId: item.id,
+    success: `${item.word}，${item.meaning}。`,
+    hint: `“${item.word}”的意思是“${item.meaning}”。`,
+    action: 'signal',
+  });
+}
+
+function englishImageChoices(answer, random) {
+  const answerVisual = ENGLISH_PICTOGRAMS[answer.word];
+  if (!answerVisual) return null;
+
+  const labels = new Set([answer.meaning]);
+  const visuals = new Set([answerVisual]);
+  const distractors = [];
+  for (const item of shuffled(ENGLISH_WORDS, random)) {
+    const visual = ENGLISH_PICTOGRAMS[item.word];
+    if (item.tier !== answer.tier
+      || item.id === answer.id
+      || !visual
+      || labels.has(item.meaning)
+      || visuals.has(visual)) continue;
+    labels.add(item.meaning);
+    visuals.add(visual);
+    distractors.push(item);
+    if (distractors.length === 2) break;
+  }
+  if (distractors.length < 2) return null;
+  return shuffled([answer, ...distractors], random).map((item) => (
+    choice(item.id, item.meaning, ENGLISH_PICTOGRAMS[item.word])
+  ));
+}
+
 function englishListen(item, random) {
+  const choices = englishImageChoices(item, random);
+  if (!choices) return englishContextChoice(item, random);
   return interaction({
     kind: 'english-listen-image',
     subject: 'english',
     skillIds: [item.id],
     prompt: '听一听，选择对应的图。',
     speech: { text: item.word, lang: 'en-US' },
-    choices: languageChoices(item, ENGLISH_WORDS, (entry) => entry.meaning, (entry) => entry.meaning, random),
+    choices,
     answerId: item.id,
     success: `${item.word}，${item.meaning}。`,
     hint: `听到“${item.word}”时，选择“${item.meaning}”。`,
@@ -334,9 +586,10 @@ function measurementQuestion(skill, random) {
 }
 
 function clockQuestion(skill, random) {
-  const answer = randomInteger(random, skill.min, Math.min(skill.max, 12));
+  const dialSkill = { ...skill, min: 1, max: 12 };
+  const answer = randomInteger(random, dialSkill.min, dialSkill.max);
   return numericInteraction(
-    skill,
+    dialSkill,
     'math-clock',
     `时针指向 ${answer}，现在是几点？`,
     `时针指向${answer}，现在是几点`,
@@ -417,6 +670,24 @@ function interactionForSkill(skillId, random) {
   return null;
 }
 
+function isKnownSkillId(skillId) {
+  return chineseById.has(skillId)
+    || englishWordById.has(skillId)
+    || englishPatternById.has(skillId)
+    || mathById.has(skillId);
+}
+
+function reviewInteractions(skillIds, fallbackIds, count, random) {
+  const candidates = skillIds.length > 0 ? skillIds : fallbackIds;
+  return Array.from({ length: count }, (_, index) => {
+    const skillId = candidates[index % candidates.length];
+    if (chineseById.has(skillId) && index % 2 === 1) {
+      return chineseWordMatch(chineseById.get(skillId), random);
+    }
+    return interactionForSkill(skillId, random);
+  });
+}
+
 function mixedDelivery(chineseItem, englishItem, mathSkill, random) {
   const amount = randomInteger(random, Math.max(1, mathSkill.min), Math.max(1, mathSkill.max));
   const wrongAmount = amount < mathSkill.max ? amount + 1 : amount - 1;
@@ -446,7 +717,11 @@ export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = D
   }
 
   const random = seededRandom(seed, lesson.id);
-  const dueIds = selectReviewSkills(progress, lesson, 16, now).map((record) => record.id);
+  const dueRecords = selectReviewSkills(progress, lesson, 16, now);
+  const dueIds = dueRecords.map((record) => record.id);
+  const eligibleReviewIds = dueRecords
+    .filter((record) => record.exposures > 0 && isKnownSkillId(record.id))
+    .map((record) => record.id);
   const previousIds = priorProjectSkillIds(lesson);
   const introducedIds = [
     ...lesson.newChineseIds,
@@ -457,6 +732,42 @@ export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = D
   const tierChineseIds = CHINESE_ITEMS.filter((item) => item.tier === lesson.tier).map((item) => item.id);
   const tierWordIds = ENGLISH_WORDS.filter((item) => item.tier === lesson.tier).map((item) => item.id);
   const tierPatternIds = ENGLISH_PATTERNS.filter((item) => item.tier === lesson.tier).map((item) => item.id);
+
+  if (lesson.phase !== 'review' && eligibleReviewIds.length >= 8) {
+    const currentChineseId = shuffled(lesson.newChineseIds, random)[0];
+    const currentEnglishId = shuffled([
+      ...lesson.newEnglishWordIds,
+      ...lesson.newEnglishPatternIds,
+    ], random)[0];
+    const reviewChineseIds = eligibleReviewIds.filter((id) => chineseById.has(id));
+    const reviewEnglishIds = eligibleReviewIds.filter((id) => (
+      englishWordById.has(id) || englishPatternById.has(id)
+    ));
+    const reviewMathIds = eligibleReviewIds.filter((id) => mathById.has(id));
+    const currentEnglishItem = englishWordById.get(currentEnglishId)
+      ?? englishPatternById.get(currentEnglishId);
+    const result = [
+      ...reviewInteractions(eligibleReviewIds.slice(0, 2), eligibleReviewIds, 2, random),
+      chineseRecognition(chineseById.get(currentChineseId), random),
+      ...reviewInteractions(reviewChineseIds, eligibleReviewIds, 2, random),
+      interactionForSkill(currentEnglishId, random),
+      ...reviewInteractions(reviewEnglishIds, eligibleReviewIds, 2, random),
+      mathInteraction(mathById.get(lesson.mathSkillId), random),
+      ...reviewInteractions(reviewMathIds, eligibleReviewIds, 2, random),
+      mixedDelivery(
+        chineseById.get(currentChineseId),
+        currentEnglishItem,
+        mathById.get(lesson.mathSkillId),
+        random,
+      ),
+    ];
+    const projectAction = actionByVehicle[getProject(lesson.projectId)?.vehicle] ?? 'dig';
+    return result.map((item, index) => ({
+      ...item,
+      id: `${lesson.id}-interaction-${String(index + 1).padStart(2, '0')}`,
+      action: projectAction,
+    }));
+  }
 
   const warmupIds = takePrioritized(
     [dueIds, previousIds, introducedIds],

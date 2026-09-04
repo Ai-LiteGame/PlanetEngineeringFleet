@@ -40,6 +40,8 @@ export const DEFAULT_PROGRESS = Object.freeze({
   currentLessonId: null,
   lessons: Object.freeze({}),
   skills: Object.freeze({}),
+  completionIds: Object.freeze([]),
+  lastCompletion: null,
   honors: Object.freeze([]),
   vehicleUpgrades: Object.freeze([]),
   settings: Object.freeze({ soundEnabled: true }),
@@ -60,6 +62,23 @@ function isNullableTimestamp(value) {
 
 function isLessonId(value) {
   return typeof value === 'string' && /^lesson-\d{3}$/.test(value);
+}
+
+function isCompletionId(value) {
+  return typeof value === 'string' && /^lesson-\d{3}:[1-9]\d*$/.test(value);
+}
+
+function isCompletionMetadata(value) {
+  return value === null || (
+    isPlainObject(value)
+    && isCompletionId(value.id)
+    && isLessonId(value.lessonId)
+    && Number.isInteger(value.completedCount)
+    && value.completedCount > 0
+    && value.id === `${value.lessonId}:${value.completedCount}`
+    && isPlainObject(value.effects)
+    && value.effects.clearActiveLesson === true
+  );
 }
 
 function isLessonRecord(value) {
@@ -113,12 +132,24 @@ function cloneSkillRecord(record) {
   };
 }
 
+function cloneCompletionMetadata(metadata) {
+  if (metadata === null) return null;
+  return {
+    id: metadata.id,
+    lessonId: metadata.lessonId,
+    completedCount: metadata.completedCount,
+    effects: { clearActiveLesson: true },
+  };
+}
+
 export function createProgressV2(overrides = {}) {
   return {
     version: 2,
     currentLessonId: null,
     lessons: {},
     skills: {},
+    completionIds: [],
+    lastCompletion: null,
     honors: [],
     vehicleUpgrades: [],
     settings: { soundEnabled: true },
@@ -128,11 +159,16 @@ export function createProgressV2(overrides = {}) {
 }
 
 function normalizeV2(value) {
+  const completionIds = value?.completionIds ?? [];
+  const lastCompletion = value?.lastCompletion ?? null;
   if (!isPlainObject(value)
     || value.version !== 2
     || !(value.currentLessonId === null || isLessonId(value.currentLessonId))
     || !isPlainObject(value.lessons)
     || !isPlainObject(value.skills)
+    || !Array.isArray(completionIds)
+    || completionIds.some((id) => !isCompletionId(id))
+    || !isCompletionMetadata(lastCompletion)
     || !isStringArray(value.honors)
     || !isStringArray(value.vehicleUpgrades)
     || !isPlainObject(value.settings)
@@ -148,6 +184,8 @@ function normalizeV2(value) {
     currentLessonId: value.currentLessonId,
     lessons: Object.fromEntries(Object.entries(value.lessons).map(([id, record]) => [id, cloneLessonRecord(record)])),
     skills: Object.fromEntries(Object.entries(value.skills).map(([id, record]) => [id, cloneSkillRecord(record)])),
+    completionIds: unique(completionIds),
+    lastCompletion: cloneCompletionMetadata(lastCompletion),
     honors: unique(value.honors),
     vehicleUpgrades: [...value.vehicleUpgrades],
     settings: { soundEnabled: value.settings.soundEnabled },
@@ -413,6 +451,17 @@ export function loadActiveLesson(storage) {
       : null;
   } catch {
     return null;
+  }
+}
+
+export function clearActiveLesson(storage) {
+  try {
+    const target = resolveStorage(storage);
+    if (!target) return false;
+    target.removeItem(ACTIVE_KEY);
+    return true;
+  } catch {
+    return false;
   }
 }
 
