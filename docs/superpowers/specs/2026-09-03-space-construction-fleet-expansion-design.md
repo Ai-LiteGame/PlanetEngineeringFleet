@@ -201,13 +201,17 @@
       exposures: 1,
       independentCorrect: 0,
       assistedCorrect: 0,
+      independentLessonIds: [],
+      firstIndependentAt: null,
+      lastSeenAt: 1788364800000,
       nextReviewAt: null,
       status: "practicing"
     }
   },
   honors: [],
   vehicleUpgrades: [],
-  settings: { soundEnabled: true }
+  settings: { soundEnabled: true },
+  storageAvailable: true
 }
 ```
 
