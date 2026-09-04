@@ -29,6 +29,7 @@ function createMemoryCacheStorage(names = []) {
   const caches = new Map(names.map((name) => [name, new Map()]));
   const storage = {
     addAllError: null,
+    addedRequests: [],
     addedUrls: [],
     deletedNames: [],
     globalMatchCalls: 0,
@@ -60,8 +61,9 @@ function createMemoryCacheStorage(names = []) {
       return {
         async addAll(urls) {
           if (storage.addAllError) throw storage.addAllError;
-          storage.addedUrls.push(...urls);
-          for (const url of urls) cache.set(url, { precached: true, url });
+          storage.addedRequests.push(...urls);
+          storage.addedUrls.push(...urls.map(requestKey));
+          for (const url of urls) cache.set(requestKey(url), { precached: true, url: requestKey(url) });
         },
         async match(request) {
           storage.matchedCacheNames.push(name);
@@ -109,6 +111,7 @@ test('install fills one versioned cache with every declared asset', async () => 
   await installApp(storage, APP_SCOPE);
   assert.deepEqual(storage.openedNames, [APP_CACHE_NAME]);
   assert.deepEqual(storage.addedUrls, PWA_ASSETS.map((path) => new URL(path, APP_SCOPE).href));
+  assert.equal(storage.addedRequests.every((request) => request.cache === 'reload'), true);
 });
 
 test('activation removes only stale caches owned by this app', async () => {

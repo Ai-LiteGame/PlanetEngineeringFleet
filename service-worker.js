@@ -31,7 +31,11 @@ export function shouldHandleRequest(request, appScope) {
 
 export async function installApp(cacheStorage, baseUrl) {
   const cache = await cacheStorage.open(getPwaCacheName(baseUrl));
-  await cache.addAll(PWA_ASSETS.map((path) => new URL(path, baseUrl).href));
+  const requests = PWA_ASSETS.map((path) => new Request(
+    new URL(path, baseUrl),
+    { cache: 'reload' },
+  ));
+  await cache.addAll(requests);
 }
 
 export async function activateApp(cacheStorage, baseUrl) {
