@@ -6,7 +6,7 @@ function normalizedScopePath(appScope) {
 }
 
 function cacheNamespaceForScope(appScope) {
-  return `${PWA_CACHE_PREFIX}-${encodeURIComponent(normalizedScopePath(appScope))}-`;
+  return `${PWA_CACHE_PREFIX}:${encodeURIComponent(normalizedScopePath(appScope))}:`;
 }
 
 export function getPwaCacheName(appScope) {

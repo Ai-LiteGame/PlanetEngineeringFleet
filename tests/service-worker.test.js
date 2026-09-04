@@ -16,7 +16,7 @@ const APP_SCOPE = 'https://game.test/app/';
 function expectedCacheName(scope, version = PWA_CACHE_VERSION) {
   const scopeUrl = new URL(scope);
   const scopePath = scopeUrl.pathname.endsWith('/') ? scopeUrl.pathname : `${scopeUrl.pathname}/`;
-  return `${PWA_CACHE_PREFIX}-${encodeURIComponent(scopePath)}-${version}`;
+  return `${PWA_CACHE_PREFIX}:${encodeURIComponent(scopePath)}:${version}`;
 }
 
 const APP_CACHE_NAME = expectedCacheName(APP_SCOPE);
@@ -155,6 +155,25 @@ test('sibling deployment scopes cannot delete or read each other caches', async 
   );
   assert.deepEqual(storage.matchedCacheNames, [APP_CACHE_NAME]);
   assert.equal(storage.peek(siblingCacheName, request), siblingResponse);
+});
+
+test('activation preserves a nested scope whose encoded cache name shares the parent prefix', async () => {
+  const nestedScope = 'https://game.test/app/-school/';
+  const staleAppCacheName = expectedCacheName(APP_SCOPE, 'v1');
+  const nestedCacheName = expectedCacheName(nestedScope);
+  const staleNestedCacheName = expectedCacheName(nestedScope, 'v1');
+  const storage = createMemoryCacheStorage([
+    staleAppCacheName,
+    APP_CACHE_NAME,
+    staleNestedCacheName,
+    nestedCacheName,
+  ]);
+
+  await activateApp(storage, APP_SCOPE);
+
+  assert.deepEqual(storage.deletedNames, [staleAppCacheName]);
+  assert.equal((await storage.keys()).includes(staleNestedCacheName), true);
+  assert.equal((await storage.keys()).includes(nestedCacheName), true);
 });
 
 test('cached response takes precedence over a network request', async () => {
