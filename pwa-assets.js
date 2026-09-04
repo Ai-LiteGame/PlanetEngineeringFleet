@@ -1,5 +1,5 @@
 export const PWA_CACHE_PREFIX = 'planet-engineering-fleet';
-export const PWA_CACHE_VERSION = 'v2-0060b219c414dc6cd642c24c02537e157c6b98b09000041f20a31d089e548d65';
+export const PWA_CACHE_VERSION = 'v2-6981c541b436d2469d171a9e2faaabc3c5d7d7be752664a97cc76605bae3a9b1';
 
 export const PWA_ASSETS = Object.freeze([
   './',

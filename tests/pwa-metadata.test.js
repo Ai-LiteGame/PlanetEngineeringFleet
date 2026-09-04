@@ -191,3 +191,40 @@ test('service worker registration uses the relative module worker and fails safe
   assert.equal(warnings[0][0], '离线功能暂时不可用。');
   assert.equal(warnings[0][1] instanceof Error, true);
 });
+
+test('an existing service worker controller reloads once when an update takes control', async () => {
+  const { registerServiceWorker } = await import('../src/register-service-worker.js');
+  let controllerChangeHandler;
+  let reloads = 0;
+  const container = {
+    controller: { scriptURL: 'https://example.test/games/service-worker.js' },
+    addEventListener(type, handler) {
+      if (type === 'controllerchange') controllerChangeHandler = handler;
+    },
+    register: async () => ({ scope: 'https://example.test/games/' }),
+  };
+
+  await registerServiceWorker(container, console, () => { reloads += 1; });
+
+  controllerChangeHandler?.();
+  controllerChangeHandler?.();
+  assert.equal(reloads, 1);
+});
+
+test('a first service worker install does not reload the uncontrolled page', async () => {
+  const { registerServiceWorker } = await import('../src/register-service-worker.js');
+  let controllerChangeHandler;
+  let reloads = 0;
+  const container = {
+    controller: null,
+    addEventListener(type, handler) {
+      if (type === 'controllerchange') controllerChangeHandler = handler;
+    },
+    register: async () => ({ scope: 'https://example.test/games/' }),
+  };
+
+  await registerServiceWorker(container, console, () => { reloads += 1; });
+
+  controllerChangeHandler?.();
+  assert.equal(reloads, 0);
+});
