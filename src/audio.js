@@ -2,15 +2,22 @@ let soundEnabled = true;
 let audioContext = null;
 let activeSpeech = null;
 const nativeSpeechHandler = 'planetEngineeringFleetTts';
+const compatibleSpeechHandler = 'planetEngineeringFleetTtsFallback';
+const nativeSpeechTimeout = 12000;
+const listeningBridges = new WeakSet();
+const pendingNativeSpeech = new Map();
+let nativeRequestSequence = 0;
 
-function finishActiveSpeech(completed = false) {
-  activeSpeech?.finish(completed);
+function finishActiveSpeech(completed = false, stopNative = false) {
+  const speech = activeSpeech;
+  if (stopNative) speech?.stop?.();
+  speech?.finish(completed);
 }
 
 export function setSoundEnabled(value) {
   soundEnabled = Boolean(value);
   if (!soundEnabled) {
-    finishActiveSpeech(false);
+    finishActiveSpeech(false, true);
     try {
       globalThis.speechSynthesis?.cancel();
     } catch {
@@ -20,8 +27,35 @@ export function setSoundEnabled(value) {
 }
 
 function nativeBridge() {
-  const bridge = globalThis.flutter_inappwebview;
-  return typeof bridge?.callHandler === 'function' ? bridge : null;
+  const bridge = [nativeSpeechHandler, compatibleSpeechHandler]
+    .map((name) => globalThis[name])
+    .find((candidate) => (
+      (typeof candidate === 'object' || typeof candidate === 'function')
+      && candidate !== null
+      && typeof candidate.postMessage === 'function'
+      && typeof candidate.addEventListener === 'function'
+    ));
+  if (!bridge) return null;
+
+  if (!listeningBridges.has(bridge)) {
+    try {
+      bridge.addEventListener('message', (event) => {
+        try {
+          const response = typeof event.data === 'string'
+            ? JSON.parse(event.data)
+            : event.data;
+          const complete = pendingNativeSpeech.get(response?.id);
+          if (complete) complete(response.result);
+        } catch {
+          // Malformed native responses are ignored and handled by the timeout.
+        }
+      });
+      listeningBridges.add(bridge);
+    } catch {
+      return null;
+    }
+  }
+  return bridge;
 }
 
 function isWebSpeechAvailable() {
@@ -67,21 +101,50 @@ function speakWithWebSpeech(text, lang, rate, pitch) {
   }
 }
 
+function nextNativeRequestId() {
+  nativeRequestSequence += 1;
+  return `speech-${Date.now()}-${nativeRequestSequence}`;
+}
+
+function postNativeMessage(bridge, message) {
+  bridge.postMessage(JSON.stringify(message));
+}
+
+function stopNativeSpeech(bridge) {
+  try {
+    postNativeMessage(bridge, {
+      id: nextNativeRequestId(),
+      action: 'stop',
+    });
+  } catch {
+    // Stopping is best-effort when the native runtime is shutting down.
+  }
+}
+
 function speakWithNative(bridge, payload) {
   return new Promise((resolve) => {
+    const id = nextNativeRequestId();
     let settled = false;
+    let timeout = null;
     const speech = {
       finish(completed) {
         if (settled) return;
         settled = true;
+        if (timeout !== null) clearTimeout(timeout);
+        pendingNativeSpeech.delete(id);
         if (activeSpeech === speech) activeSpeech = null;
         resolve(completed);
+      },
+      stop() {
+        stopNativeSpeech(bridge);
       },
     };
 
     const fallback = () => {
       if (settled) return;
       settled = true;
+      if (timeout !== null) clearTimeout(timeout);
+      pendingNativeSpeech.delete(id);
       if (activeSpeech === speech) activeSpeech = null;
       speakWithWebSpeech(
         payload.text,
@@ -92,14 +155,16 @@ function speakWithNative(bridge, payload) {
     };
 
     activeSpeech = speech;
+    pendingNativeSpeech.set(id, (result) => {
+      if (result?.ok === true) speech.finish(true);
+      else fallback();
+    });
+    timeout = setTimeout(() => {
+      speech.stop();
+      fallback();
+    }, nativeSpeechTimeout);
     try {
-      Promise.resolve(bridge.callHandler(nativeSpeechHandler, payload)).then(
-        (result) => {
-          if (result?.ok === true) speech.finish(true);
-          else fallback();
-        },
-        fallback,
-      );
+      postNativeMessage(bridge, { id, action: 'speak', payload });
     } catch {
       fallback();
     }
@@ -109,7 +174,7 @@ function speakWithNative(bridge, payload) {
 export function speak(text, lang = 'zh-CN') {
   if (!soundEnabled || !text) return Promise.resolve(false);
 
-  finishActiveSpeech(false);
+  finishActiveSpeech(false, true);
   try {
     globalThis.speechSynthesis?.cancel();
   } catch {
