@@ -10,6 +10,7 @@ const ICON_PATHS = Object.freeze({
   map: '<path d="m3 6 5-3 8 3 5-3v15l-5 3-8-3-5 3Z"/><path d="M8 3v15m8-12v15"/>',
   star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
   replay: '<path d="M4 11a8 8 0 1 1 2.3 5.7M4 5v6h6"/>',
+  download: '<path d="M12 3v12m-5-5 5 5 5-5"/><path d="M5 20h14"/>',
 });
 
 const VEHICLE_LABELS = Object.freeze({

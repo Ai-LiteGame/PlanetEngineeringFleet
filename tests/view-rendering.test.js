@@ -208,3 +208,19 @@ test('mobile CSS keeps lesson progress visible and reset control touch-sized', a
   assert.match(mobile, /\.lesson-topbar \.brand-lockup\s*{[^}]*display:\s*none/);
   assert.match(css, /#reset-progress\s*{[^}]*min-height:\s*56px/);
 });
+
+test('adult area exposes course and settings tabs plus scoped JSON export controls', async () => {
+  const [html, source] = await Promise.all([
+    readFile(new URL('../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app.js', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(html, /role="tablist"/);
+  assert.match(html, /data-parent-tab="course"/);
+  assert.match(html, /data-parent-tab="settings"/);
+  assert.match(html, /data-action="export-progress"/);
+  assert.match(source, /planet-engineering-progress\.json/);
+  assert.match(source, /URL\.createObjectURL/);
+  assert.match(source, /URL\.revokeObjectURL/);
+  assert.match(source, /clearActiveStage\(\)/);
+});

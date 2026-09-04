@@ -12,23 +12,37 @@
     <main id="app"></main>
 
     <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
-      <form method="dialog" class="settings-content">
+      <div class="settings-content">
         <div class="dialog-heading">
           <div>
             <p class="eyebrow">家长与老师</p>
-            <h2 id="settings-title">工程队设置</h2>
+            <h2 id="settings-title">课程与学习记录</h2>
           </div>
-          <button class="icon-button" value="close" aria-label="关闭设置">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
-          </button>
+          <form method="dialog">
+            <button class="icon-button" value="close" aria-label="关闭家长页面">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+          </form>
         </div>
-        <label class="switch-row">
-          <span><strong>声音与朗读</strong><small>关闭后仍可通过文字完成游戏</small></span>
-          <input id="sound-toggle" type="checkbox" role="switch" checked>
-        </label>
-        <div id="learning-summary" class="learning-summary"></div>
-        <button id="reset-progress" type="button" class="text-button danger-button">重置学习记录</button>
-      </form>
+        <div class="parent-tabs" role="tablist" aria-label="家长页面">
+          <button id="course-tab" type="button" role="tab" aria-controls="course-table-panel" aria-selected="true" data-parent-tab="course">课程表</button>
+          <button id="settings-tab" type="button" role="tab" aria-controls="parent-settings-panel" aria-selected="false" tabindex="-1" data-parent-tab="settings">设置</button>
+        </div>
+        <section id="course-table-panel" class="parent-panel" role="tabpanel" aria-labelledby="course-tab">
+          <button class="secondary-button export-progress" type="button" data-action="export-progress">下载 JSON</button>
+        </section>
+        <section id="parent-settings-panel" class="parent-panel parent-settings-panel" role="tabpanel" aria-labelledby="settings-tab" hidden>
+          <label class="switch-row">
+            <span><strong>声音与朗读</strong><small>关闭后仍可通过文字完成游戏</small></span>
+            <input id="sound-toggle" type="checkbox" role="switch" checked>
+          </label>
+          <div class="reset-section">
+            <strong>学习记录</strong>
+            <p>重置后将清除本游戏的课程进度与未完成课程。</p>
+            <button id="reset-progress" type="button" class="text-button danger-button">重置学习记录</button>
+          </div>
+        </section>
+      </div>
     </dialog>
 
     <noscript>请启用 JavaScript 后开始施工。</noscript>

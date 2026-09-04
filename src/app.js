@@ -10,23 +10,34 @@ import {
 import { getSceneState } from './scene-model.js';
 import {
   clearActiveLesson,
+  clearActiveStage,
+  exportProgress,
   loadActiveLesson,
   loadProgress,
   resetProgress,
   saveActiveLesson,
   saveProgress,
 } from './storage.js';
+import {
+  buildCourseRows,
+  courseSummary,
+  filterCourseRows,
+  focusCourseRows,
+} from './course-table.js';
 import { isSettingsActivationKey } from './view-model.js';
 import { createSpeechCountdown, playSuccess, setSoundEnabled, speak } from './audio.js';
 import { renderCompletion } from './views/completion-view.js';
+import { renderCourseTable } from './views/course-table-view.js';
 import { renderLesson } from './views/lesson-view.js';
 import { renderMap } from './views/map-view.js';
 
 const app = document.querySelector('#app');
 const settingsDialog = document.querySelector('#settings-dialog');
 const soundToggle = document.querySelector('#sound-toggle');
-const learningSummary = document.querySelector('#learning-summary');
 const resetButton = document.querySelector('#reset-progress');
+const courseTablePanel = document.querySelector('#course-table-panel');
+const parentSettingsPanel = document.querySelector('#parent-settings-panel');
+const parentTabButtons = settingsDialog.querySelectorAll('[data-parent-tab]');
 
 let progress = loadProgress();
 let screen = 'map';
@@ -42,6 +53,8 @@ let continueTimer = null;
 let settingsHoldTimer = null;
 let resetTimer = null;
 let resetArmed = false;
+let parentTab = 'course';
+let courseFilters = { tier: 'all', subject: 'all', regionId: 'all', status: 'all' };
 
 const englishRepeatCountdown = createSpeechCountdown({
   onCountdownStart() {
@@ -325,18 +338,52 @@ function toggleSound() {
   render();
 }
 
+function renderCoursePanel() {
+  const allRows = buildCourseRows(LESSONS, progress);
+  const filteredRows = filterCourseRows(allRows, courseFilters);
+  const focusedRows = focusCourseRows(filteredRows, courseFilters.subject);
+  courseTablePanel.innerHTML = renderCourseTable({
+    rows: focusedRows,
+    summary: courseSummary(allRows),
+    filters: courseFilters,
+    regions: REGIONS,
+    storageAvailable: progress.storageAvailable,
+  });
+}
+
+function showParentTab(tab) {
+  parentTab = tab === 'settings' ? 'settings' : 'course';
+  courseTablePanel.hidden = parentTab !== 'course';
+  parentSettingsPanel.hidden = parentTab !== 'settings';
+  for (const button of parentTabButtons) {
+    const selected = button.dataset.parentTab === parentTab;
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  }
+}
+
 function openSettings() {
-  const completedLessons = Object.values(progress.lessons).filter((record) => record.completedCount > 0).length;
-  const masteredSkills = Object.values(progress.skills).filter((skill) => skill.status === 'mastered').length;
-  learningSummary.innerHTML = `
-    <strong>学习记录</strong>
-    <span>完成课程 ${completedLessons} / ${LESSONS.length}</span>
-    <span>已掌握 ${masteredSkills} 项技能</span>
-    ${progress.storageAvailable ? '' : '<em>本次记录不会保存</em>'}`;
+  renderCoursePanel();
   soundToggle.checked = progress.settings.soundEnabled;
   resetArmed = false;
   resetButton.textContent = '重置学习记录';
+  showParentTab('course');
   settingsDialog.showModal();
+}
+
+function downloadProgress() {
+  const blob = new Blob([exportProgress(progress)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'planet-engineering-progress.json';
+  document.body.append(anchor);
+  try {
+    anchor.click();
+  } finally {
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
 }
 
 function restoreActiveLesson() {
@@ -409,6 +456,28 @@ for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
   app.addEventListener(eventName, () => clearTimeout(settingsHoldTimer));
 }
 
+settingsDialog.addEventListener('click', (event) => {
+  const tab = event.target.closest('[data-parent-tab]')?.dataset.parentTab;
+  if (tab) {
+    showParentTab(tab);
+    return;
+  }
+  if (event.target.closest('[data-action="export-progress"]')) downloadProgress();
+});
+
+settingsDialog.addEventListener('change', (event) => {
+  const filter = event.target.dataset.courseFilter;
+  if (!filter) return;
+  courseFilters = {
+    ...courseFilters,
+    [filter]: filter === 'tier' && event.target.value !== 'all'
+      ? Number(event.target.value)
+      : event.target.value,
+  };
+  renderCoursePanel();
+  courseTablePanel.querySelector(`[data-course-filter="${filter}"]`)?.focus();
+});
+
 soundToggle.addEventListener('change', () => {
   progress = {
     ...progress,
@@ -416,6 +485,7 @@ soundToggle.addEventListener('change', () => {
   };
   setSoundEnabled(progress.settings.soundEnabled);
   saveProgress(undefined, progress);
+  renderCoursePanel();
   render();
 });
 
@@ -434,6 +504,7 @@ resetButton.addEventListener('click', () => {
   clearTimeout(resetTimer);
   resetProgress();
   clearActiveLesson();
+  clearActiveStage();
   clearInteractionTimers();
   progress = loadProgress();
   lessonState = null;
@@ -447,5 +518,7 @@ resetButton.addEventListener('click', () => {
 
 setSoundEnabled(progress.settings.soundEnabled);
 soundToggle.checked = progress.settings.soundEnabled;
+renderCoursePanel();
+showParentTab(parentTab);
 render();
 restoreActiveLesson();
