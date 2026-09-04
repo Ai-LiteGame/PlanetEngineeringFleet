@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 4173",
+    "package:pwa": "node scripts/package-pwa.mjs",
     "test": "node --test"
   }
 }
