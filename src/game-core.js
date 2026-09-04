@@ -394,6 +394,9 @@ export function completeLesson(state, progress, now = Date.now()) {
   const viewedProgress = recordLessonViewed(progress, state.lessonId, state.startedAt);
   const previous = viewedProgress.lessons[state.lessonId];
   const skills = { ...viewedProgress.skills };
+  const hintCount = state.answers.reduce((total, answer) => (
+    total + (Number.isInteger(answer.attempts) && answer.attempts > 0 ? answer.attempts : 0)
+  ), previous.hintCount);
   for (const answer of state.answers) {
     for (const skillId of answer.skillIds) {
       skills[skillId] = recordSkillAttempt(
@@ -426,6 +429,7 @@ export function completeLesson(state, progress, now = Date.now()) {
         status: previous.status === 'mastered' ? 'mastered' : 'practiced',
         completedCount: state.completionCount,
         lastCompletedAt: now,
+        hintCount,
       },
     },
     skills,

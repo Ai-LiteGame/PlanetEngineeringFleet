@@ -8,26 +8,37 @@ import {
   filterCourseRows,
   focusCourseRows,
 } from '../src/course-table.js';
+import { createSkillRecord, recordSkillAttempt } from '../src/mastery.js';
 import { renderCourseTable } from '../src/views/course-table-view.js';
+
+const DAY = 86400000;
 
 const lessonRecord = (status, overrides = {}) => ({
   status,
   viewedAt: null,
   completedCount: 0,
   lastCompletedAt: null,
+  hintCount: 0,
   ...overrides,
 });
 
-test('course rows expose viewed and mastered as different states in stable lesson order', () => {
+function masteredSkillRecord() {
+  return [
+    ['lesson-001', 0],
+    ['lesson-002', DAY],
+    ['lesson-003', DAY * 2],
+  ].reduce((record, [lessonId, now]) => recordSkillAttempt(record, {
+    correct: true,
+    assistance: 0,
+    lessonId,
+  }, now), createSkillRecord());
+}
+
+test('course rows expose viewed and not-started states in stable lesson order', () => {
   const lessons = [LESSONS[1], LESSONS[0]];
   const progress = {
     lessons: {
       [LESSONS[0].id]: lessonRecord('viewed', { viewedAt: 1000 }),
-      [LESSONS[1].id]: lessonRecord('mastered', {
-        viewedAt: 1000,
-        completedCount: 3,
-        lastCompletedAt: 5000,
-      }),
     },
     skills: {},
   };
@@ -36,39 +47,100 @@ test('course rows expose viewed and mastered as different states in stable lesso
 
   assert.deepEqual(rows.map((row) => row.id), ['lesson-001', 'lesson-002']);
   assert.equal(rows[0].status, 'viewed');
-  assert.equal(rows[1].status, 'mastered');
+  assert.equal(rows[1].status, 'notStarted');
   assert.equal(rows[0].regionId, 'sunny-town');
   assert.equal(rows[0].regionTitle, '阳光工程镇');
   assert.equal(rows[0].estimatedMinutes, '8–12');
 });
 
-test('course rows resolve mixed curriculum targets and assisted completions', () => {
+test('course rows derive mastered and review-due states from current skill evidence', () => {
   const lesson = LESSONS[0];
-  const [chineseId] = lesson.newChineseIds;
-  const [englishId] = lesson.newEnglishWordIds;
+  const skillIds = [
+    ...lesson.newChineseIds,
+    ...lesson.newEnglishWordIds,
+    ...lesson.newEnglishPatternIds,
+    lesson.mathSkillId,
+  ];
+  const skills = Object.fromEntries(skillIds.map((id) => [id, masteredSkillRecord()]));
+  const dueAt = skills[skillIds[0]].nextReviewAt;
   const progress = {
     lessons: {
       [lesson.id]: lessonRecord('practiced', {
         viewedAt: 1000,
-        completedCount: 2,
+        completedCount: 1,
         lastCompletedAt: 5000,
       }),
     },
-    skills: {
-      [chineseId]: { assistedCorrect: 2 },
-      [englishId]: { assistedCorrect: 1 },
-    },
+    skills,
   };
 
-  const [row] = buildCourseRows([lesson], progress);
+  assert.equal(buildCourseRows([lesson], progress, dueAt - 1)[0].status, 'mastered');
+  assert.equal(buildCourseRows([lesson], progress, dueAt)[0].status, 'reviewDue');
+});
 
-  assert.equal(row.chinese.length > 0, true);
-  assert.equal(row.englishWords.length > 0, true);
-  assert.equal(row.englishPatterns.length > 0, true);
-  assert.match(row.mathTarget, /0–10/);
-  assert.deepEqual(row.subjects, ['chinese', 'english', 'math']);
-  assert.equal(row.hintCount, 3);
-  assert.equal(row.completedCount, 2);
+test('stored mastery labels cannot bypass current lesson and skill evidence', () => {
+  const lesson = LESSONS[0];
+  const completed = {
+    lessons: {
+      [lesson.id]: lessonRecord('mastered', {
+        viewedAt: 1000,
+        completedCount: 1,
+        lastCompletedAt: 2000,
+      }),
+    },
+    skills: {},
+  };
+  const viewed = {
+    lessons: {
+      [lesson.id]: lessonRecord('reviewDue', { viewedAt: 1000 }),
+    },
+    skills: {},
+  };
+
+  assert.equal(buildCourseRows([lesson], completed, 3000)[0].status, 'practiced');
+  assert.equal(buildCourseRows([lesson], viewed, 3000)[0].status, 'viewed');
+});
+
+test('course rows resolve mixed targets and keep hint totals scoped to each lesson', () => {
+  const [earlierLesson, laterLesson] = LESSONS;
+  const assistedSkillId = earlierLesson.newChineseIds[0];
+  const assistedSkill = recordSkillAttempt(createSkillRecord(), {
+    correct: true,
+    assistance: 1,
+    lessonId: laterLesson.id,
+  }, 4000);
+  const progress = {
+    lessons: {
+      [earlierLesson.id]: lessonRecord('practiced', {
+        viewedAt: 1000,
+        completedCount: 2,
+        lastCompletedAt: 5000,
+        hintCount: 3,
+      }),
+      [laterLesson.id]: lessonRecord('practiced', {
+        viewedAt: 2000,
+        completedCount: 1,
+        lastCompletedAt: 6000,
+        hintCount: 7,
+      }),
+    },
+    skills: { [assistedSkillId]: assistedSkill },
+  };
+
+  const [earlierRow, laterRow] = buildCourseRows(
+    [earlierLesson, laterLesson],
+    progress,
+    5000,
+  );
+
+  assert.equal(earlierRow.chinese.length > 0, true);
+  assert.equal(earlierRow.englishWords.length > 0, true);
+  assert.equal(earlierRow.englishPatterns.length > 0, true);
+  assert.match(earlierRow.mathTarget, /0–10/);
+  assert.deepEqual(earlierRow.subjects, ['chinese', 'english', 'math']);
+  assert.equal(earlierRow.hintCount, 3);
+  assert.equal(earlierRow.completedCount, 2);
+  assert.equal(laterRow.hintCount, 7);
 });
 
 test('isolated review rows still expose their mixed project content', () => {

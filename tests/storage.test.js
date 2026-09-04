@@ -58,6 +58,9 @@ test('version one progress migrates known skills to schedulable version two IDs'
 
 test('version two progress round trips while de-duplicating honor IDs', () => {
   const progress = createProgressV2();
+  progress.lessons['lesson-001'] = {
+    status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 2000, hintCount: 4,
+  };
   progress.honors = ['badge:bridge', 'badge:bridge', 'badge:crane'];
   progress.completionIds = ['lesson-001:1', 'lesson-001:1'];
   progress.lastCompletion = {
@@ -72,7 +75,33 @@ test('version two progress round trips while de-duplicating honor IDs', () => {
   assert.deepEqual(restored.honors, ['badge:bridge', 'badge:crane']);
   assert.deepEqual(restored.completionIds, ['lesson-001:1']);
   assert.deepEqual(restored.lastCompletion, progress.lastCompletion);
+  assert.equal(restored.lessons['lesson-001'].hintCount, 4);
   assert.equal(restored.storageAvailable, true);
+});
+
+test('old version two lesson records load with a zero hint count', () => {
+  const progress = createProgressV2({
+    lessons: {
+      'lesson-001': {
+        status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 2000,
+      },
+    },
+  });
+
+  assert.equal(parseProgress(JSON.stringify(progress)).lessons['lesson-001'].hintCount, 0);
+});
+
+test('invalid lesson hint counts fall back to fresh progress', () => {
+  for (const hintCount of [-1, 1.5, '2']) {
+    const malformed = createProgressV2({
+      lessons: {
+        'lesson-001': {
+          status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 2000, hintCount,
+        },
+      },
+    });
+    assert.deepEqual(parseProgress(JSON.stringify(malformed)), createProgressV2());
+  }
 });
 
 test('invalid lesson statuses fall back to a fresh version two value', () => {
@@ -237,4 +266,5 @@ test('watching a briefing records viewed without recording practice', () => {
   assert.equal(progress.lessons['lesson-001'].viewedAt, 2000);
   assert.equal(progress.lessons['lesson-001'].completedCount, 0);
   assert.equal(progress.lessons['lesson-001'].lastCompletedAt, null);
+  assert.equal(progress.lessons['lesson-001'].hintCount, 0);
 });

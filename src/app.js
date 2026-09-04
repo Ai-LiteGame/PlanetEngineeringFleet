@@ -10,11 +10,8 @@ import {
 import { getSceneState } from './scene-model.js';
 import {
   clearActiveLesson,
-  clearActiveStage,
-  exportProgress,
   loadActiveLesson,
   loadProgress,
-  resetProgress,
   saveActiveLesson,
   saveProgress,
 } from './storage.js';
@@ -24,6 +21,12 @@ import {
   filterCourseRows,
   focusCourseRows,
 } from './course-table.js';
+import {
+  downloadProgressJson,
+  nextParentTab,
+  nextResetConfirmation,
+  resetGameStorage,
+} from './parent-actions.js';
 import { isSettingsActivationKey } from './view-model.js';
 import { createSpeechCountdown, playSuccess, setSoundEnabled, speak } from './audio.js';
 import { renderCompletion } from './views/completion-view.js';
@@ -371,21 +374,6 @@ function openSettings() {
   settingsDialog.showModal();
 }
 
-function downloadProgress() {
-  const blob = new Blob([exportProgress(progress)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = 'planet-engineering-progress.json';
-  document.body.append(anchor);
-  try {
-    anchor.click();
-  } finally {
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  }
-}
-
 function restoreActiveLesson() {
   const snapshot = loadActiveLesson();
   if (!snapshot) return;
@@ -462,7 +450,16 @@ settingsDialog.addEventListener('click', (event) => {
     showParentTab(tab);
     return;
   }
-  if (event.target.closest('[data-action="export-progress"]')) downloadProgress();
+  if (event.target.closest('[data-action="export-progress"]')) downloadProgressJson(progress);
+});
+
+settingsDialog.addEventListener('keydown', (event) => {
+  const tabButton = event.target.closest('[data-parent-tab]');
+  if (!tabButton || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const tab = nextParentTab(tabButton.dataset.parentTab, event.key);
+  showParentTab(tab);
+  settingsDialog.querySelector(`[data-parent-tab="${tab}"]`)?.focus();
 });
 
 settingsDialog.addEventListener('change', (event) => {
@@ -490,8 +487,9 @@ soundToggle.addEventListener('change', () => {
 });
 
 resetButton.addEventListener('click', () => {
-  if (!resetArmed) {
-    resetArmed = true;
+  const decision = nextResetConfirmation(resetArmed);
+  resetArmed = decision.armed;
+  if (!decision.confirmed) {
     resetButton.textContent = '再点一次，确认重置';
     clearTimeout(resetTimer);
     resetTimer = setTimeout(() => {
@@ -502,9 +500,7 @@ resetButton.addEventListener('click', () => {
   }
 
   clearTimeout(resetTimer);
-  resetProgress();
-  clearActiveLesson();
-  clearActiveStage();
+  resetGameStorage();
   clearInteractionTimers();
   progress = loadProgress();
   lessonState = null;

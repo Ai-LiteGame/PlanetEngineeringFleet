@@ -7,6 +7,7 @@ import {
   REGIONS,
   getProject,
 } from './curriculum/index.js';
+import { skillStatus } from './mastery.js';
 
 const LESSON_STATUSES = ['notStarted', 'viewed', 'practiced', 'reviewDue', 'mastered'];
 const SUBJECTS = ['chinese', 'english', 'math'];
@@ -73,11 +74,18 @@ function rowContent(lesson, byProject) {
   return byProject.get(lesson.projectId) ?? direct;
 }
 
-function assistedCount(progress, skillIds) {
-  return unique(skillIds).reduce((total, id) => {
-    const count = progress?.skills?.[id]?.assistedCorrect;
-    return total + (Number.isInteger(count) && count > 0 ? count : 0);
-  }, 0);
+function effectiveLessonStatus(record, skillIds, skills, now) {
+  const completed = Number.isInteger(record.completedCount) && record.completedCount > 0;
+  const viewed = Number.isInteger(record.viewedAt);
+  if (!completed && !viewed) return 'notStarted';
+
+  const statuses = skillIds.map((id) => (
+    skills?.[id] ? skillStatus(skills[id], now) : null
+  ));
+  if (statuses.includes('reviewDue')) return 'reviewDue';
+  if (statuses.length > 0 && statuses.every((status) => status === 'mastered')) return 'mastered';
+  if (completed) return 'practiced';
+  return 'viewed';
 }
 
 function mathTarget(skill) {
@@ -86,7 +94,7 @@ function mathTarget(skill) {
   return `${domain} ${skill.min}–${skill.max}`;
 }
 
-export function buildCourseRows(lessons, progress = {}) {
+export function buildCourseRows(lessons, progress = {}, now = Date.now()) {
   if (!Array.isArray(lessons)) return [];
   const byProject = projectContent(CURRICULUM_LESSONS);
 
@@ -96,17 +104,17 @@ export function buildCourseRows(lessons, progress = {}) {
     const content = rowContent(lesson, byProject);
     const mathSkill = mathById.get(lesson.mathSkillId);
     const record = progress?.lessons?.[lesson.id] ?? {};
-    const status = LESSON_STATUSES.includes(record.status) ? record.status : 'notStarted';
     const subjects = [];
     if (content.chineseIds.length > 0) subjects.push('chinese');
     if (content.englishWordIds.length > 0 || content.englishPatternIds.length > 0) subjects.push('english');
     if (mathSkill) subjects.push('math');
-    const skillIds = [
+    const skillIds = unique([
       ...content.chineseIds,
       ...content.englishWordIds,
       ...content.englishPatternIds,
       lesson.mathSkillId,
-    ].filter(Boolean);
+    ].filter(Boolean));
+    const status = effectiveLessonStatus(record, skillIds, progress?.skills, now);
 
     return {
       id: lesson.id,
@@ -136,7 +144,7 @@ export function buildCourseRows(lessons, progress = {}) {
       viewedAt: Number.isInteger(record.viewedAt) ? record.viewedAt : null,
       completedCount: Number.isInteger(record.completedCount) ? record.completedCount : 0,
       lastCompletedAt: Number.isInteger(record.lastCompletedAt) ? record.lastCompletedAt : null,
-      hintCount: assistedCount(progress, skillIds),
+      hintCount: Number.isInteger(record.hintCount) ? record.hintCount : 0,
       status,
       subjects,
     };

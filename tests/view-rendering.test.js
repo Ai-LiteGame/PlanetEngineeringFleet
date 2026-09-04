@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import { LESSONS, PROJECTS, REGIONS } from '../src/curriculum/index.js';
 import { createLessonState } from '../src/game-core.js';
+import { downloadProgressJson } from '../src/parent-actions.js';
 import { getSceneState } from '../src/scene-model.js';
 import { createProgressV2 } from '../src/storage.js';
 import { renderCompletion } from '../src/views/completion-view.js';
@@ -209,18 +210,59 @@ test('mobile CSS keeps lesson progress visible and reset control touch-sized', a
   assert.match(css, /#reset-progress\s*{[^}]*min-height:\s*56px/);
 });
 
-test('adult area exposes course and settings tabs plus scoped JSON export controls', async () => {
-  const [html, source] = await Promise.all([
-    readFile(new URL('../index.html', import.meta.url), 'utf8'),
-    readFile(new URL('../src/app.js', import.meta.url), 'utf8'),
-  ]);
+test('adult area exposes course and settings tabs plus JSON export controls', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
   assert.match(html, /role="tablist"/);
   assert.match(html, /data-parent-tab="course"/);
   assert.match(html, /data-parent-tab="settings"/);
   assert.match(html, /data-action="export-progress"/);
-  assert.match(source, /planet-engineering-progress\.json/);
-  assert.match(source, /URL\.createObjectURL/);
-  assert.match(source, /URL\.revokeObjectURL/);
-  assert.match(source, /clearActiveStage\(\)/);
+});
+
+test('progress export creates, clicks, removes, and revokes one JSON download', () => {
+  const calls = [];
+  const anchor = {
+    href: '',
+    download: '',
+    click() { calls.push('click'); },
+    remove() { calls.push('remove'); },
+  };
+  class FakeBlob {
+    constructor(parts, options) {
+      this.parts = parts;
+      this.options = options;
+      calls.push('blob');
+    }
+  }
+  const environment = {
+    Blob: FakeBlob,
+    URL: {
+      createObjectURL(blob) {
+        calls.push(['createObjectURL', blob]);
+        return 'blob:test-progress';
+      },
+      revokeObjectURL(url) { calls.push(['revokeObjectURL', url]); },
+    },
+    document: {
+      createElement(tagName) {
+        calls.push(['createElement', tagName]);
+        return anchor;
+      },
+      body: {
+        append(node) { calls.push(['append', node]); },
+      },
+    },
+  };
+
+  downloadProgressJson(createProgressV2(), environment);
+
+  assert.equal(anchor.href, 'blob:test-progress');
+  assert.equal(anchor.download, 'planet-engineering-progress.json');
+  assert.equal(calls[0], 'blob');
+  assert.equal(calls[1][0], 'createObjectURL');
+  assert.deepEqual(calls.slice(2).map((call) => Array.isArray(call) ? call[0] : call), [
+    'createElement', 'append', 'click', 'remove', 'revokeObjectURL',
+  ]);
+  assert.equal(calls[1][1].options.type, 'application/json');
+  assert.equal(JSON.parse(calls[1][1].parts[0]).version, 2);
 });

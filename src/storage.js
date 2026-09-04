@@ -87,7 +87,8 @@ function isLessonRecord(value) {
     && LESSON_STATUSES.has(value.status)
     && isNullableTimestamp(value.viewedAt)
     && isNonNegativeInteger(value.completedCount)
-    && isNullableTimestamp(value.lastCompletedAt);
+    && isNullableTimestamp(value.lastCompletedAt)
+    && (!Object.hasOwn(value, 'hintCount') || isNonNegativeInteger(value.hintCount));
 }
 
 function isSkillRecord(value) {
@@ -117,6 +118,7 @@ function cloneLessonRecord(record) {
     viewedAt: record.viewedAt,
     completedCount: record.completedCount,
     lastCompletedAt: record.lastCompletedAt,
+    hintCount: record.hintCount ?? 0,
   };
 }
 
@@ -289,7 +291,7 @@ export function migrateProgress(raw) {
     for (let index = 1; index <= Math.min(value.sessionsCompleted, 270); index += 1) {
       const id = `lesson-${String(index).padStart(3, '0')}`;
       progress.lessons[id] = {
-        status: 'practiced', viewedAt: null, completedCount: 1, lastCompletedAt: null,
+        status: 'practiced', viewedAt: null, completedCount: 1, lastCompletedAt: null, hintCount: 0,
       };
     }
 
@@ -404,7 +406,7 @@ export function recordLessonViewed(progress, lessonId, now) {
   if (!isLessonId(lessonId) || !isNonNegativeInteger(now)) return progress;
   const base = normalizeV2(progress) ?? createProgressV2();
   const previous = base.lessons[lessonId] ?? {
-    status: 'notStarted', viewedAt: null, completedCount: 0, lastCompletedAt: null,
+    status: 'notStarted', viewedAt: null, completedCount: 0, lastCompletedAt: null, hintCount: 0,
   };
   const status = previous.status === 'notStarted' ? 'viewed' : previous.status;
   return {

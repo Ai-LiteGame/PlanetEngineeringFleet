@@ -172,6 +172,7 @@ test('leaving a lesson briefing records viewed without recording practice', () =
     viewedAt: 1000,
     completedCount: 0,
     lastCompletedAt: null,
+    hintCount: 0,
   });
   assert.equal(progress.lessons['lesson-001'], undefined);
 });
@@ -236,6 +237,33 @@ test('completing a lesson marks viewed and practiced separately and records skil
   assert.equal(repeated.lessons['lesson-001'].completedCount, 1);
   assert.deepEqual(repeated.completionIds, ['lesson-001:1']);
   assert.equal(advance(state).screen, 'map');
+});
+
+test('lesson hint totals count wrong attempts once per interaction and accumulate on replay', () => {
+  function completeWithFinalMistakes(progress, seed, now, mistakes) {
+    let state = createLessonState('lesson-001', progress, seed, now - 1000);
+    while (!state.completed) {
+      const interaction = state.interactions[state.interactionIndex];
+      const isFinal = state.interactionIndex === state.interactions.length - 1;
+      if (isFinal) {
+        assert.equal(interaction.subject, 'mixed');
+        assert.equal(interaction.skillIds.length > 1, true);
+        const wrongAnswer = interaction.choices.find((choice) => choice.id !== interaction.answerId);
+        for (let count = 0; count < mistakes; count += 1) {
+          state = submitAnswer(state, wrongAnswer.id).state;
+        }
+      }
+      state = submitAnswer(state, interaction.answerId).state;
+      state = advance(state);
+    }
+    return completeLesson(state, progress, now);
+  }
+
+  const first = completeWithFinalMistakes(createProgressV2(), 9, 5000, 2);
+  assert.equal(first.lessons['lesson-001'].hintCount, 2);
+
+  const replayed = completeWithFinalMistakes(first, 10, 7000, 1);
+  assert.equal(replayed.lessons['lesson-001'].hintCount, 3);
 });
 
 test('committing a completed lesson persists progress and clears its active snapshot', () => {
@@ -319,7 +347,9 @@ test('commit orchestration retains the snapshot for an unfinished lesson', () =>
 test('a fresh replay receives the next completion id and increments the count', () => {
   const once = createProgressV2({
     lessons: {
-      'lesson-001': { status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 5000 },
+      'lesson-001': {
+        status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 5000, hintCount: 0,
+      },
     },
   });
   let state = createLessonState('lesson-001', once, 8, 6000);
@@ -336,7 +366,9 @@ test('replaying an old lesson does not move the current lesson backward', () => 
   const progress = createProgressV2({
     currentLessonId: 'lesson-100',
     lessons: {
-      'lesson-001': { status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 5000 },
+      'lesson-001': {
+        status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 5000, hintCount: 0,
+      },
     },
   });
   let state = createLessonState('lesson-001', progress, 8, 6000);
