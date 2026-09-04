@@ -129,6 +129,12 @@ button:disabled { cursor: default; }
 
 .continue-course { min-width: 178px; }
 
+.map-actions { display: flex; align-items: center; gap: 10px; }
+
+.garage-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+
+.garage-button .ui-icon { width: 22px; height: 22px; }
+
 .storage-warning, .map-notice {
   width: min(1200px, 100%);
   margin: 14px auto 0;
@@ -225,6 +231,81 @@ button.project-node { cursor: pointer; }
 
 .legend-dot.complete { background: var(--green); }
 .legend-dot.current { background: var(--coral); }
+
+/* Garage */
+.garage-shell { display: grid; grid-template-rows: auto 1fr; }
+
+.garage-main { padding: clamp(20px, 3vw, 36px) clamp(14px, 4vw, 52px) max(40px, env(safe-area-inset-bottom)); background: #f2f8f3; }
+
+.garage-main > * { width: min(1200px, 100%); margin-left: auto; margin-right: auto; }
+
+.garage-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+
+.garage-heading h1 { margin: 3px 0 0; font-size: 34px; line-height: 1.15; letter-spacing: 0; }
+
+.garage-back { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+
+.garage-section { padding: 26px 0; border-bottom: 2px solid #d5e4de; }
+
+.garage-section:last-child { border-bottom: 0; }
+
+.garage-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+
+.garage-section-heading h2 { margin: 0; font-size: 23px; letter-spacing: 0; }
+
+.garage-section-heading span { color: var(--muted-ink); font-size: 13px; font-weight: 750; text-align: right; }
+
+.garage-fleet, .garage-upgrades, .region-honors, .stage-honors { margin: 0; padding: 0; list-style: none; }
+
+.garage-fleet { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 12px; }
+
+.garage-vehicle { min-width: 0; height: 150px; display: grid; grid-template-rows: 1fr auto; align-items: center; padding: 8px 10px 12px; border: 2px solid var(--line); border-radius: 8px; background: white; text-align: center; }
+
+.garage-vehicle-art { width: 100%; height: 105px; }
+
+.garage-vehicle strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+
+.garage-paints { display: flex; gap: 10px; margin-top: 14px; }
+
+.garage-swatch { width: 34px; height: 34px; display: block; border: 3px solid white; border-radius: 50%; background: var(--swatch); box-shadow: 0 0 0 2px #a9bbb7; }
+
+.garage-upgrades { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+
+.garage-upgrade, .region-honor, .stage-honor { min-width: 0; display: flex; align-items: center; gap: 11px; border: 2px solid var(--line); border-radius: 8px; background: white; }
+
+.garage-upgrade { min-height: 78px; padding: 10px 12px; }
+
+.garage-upgrade-mark, .region-medal { flex: 0 0 auto; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: #eef2ef; color: #7c8e91; }
+
+.garage-upgrade span:last-child, .region-honor span:last-child, .stage-honor span { min-width: 0; }
+
+.garage-upgrade strong, .garage-upgrade small, .region-honor strong, .region-honor small, .stage-honor strong, .stage-honor small { display: block; overflow-wrap: anywhere; }
+
+.garage-upgrade small, .region-honor small, .stage-honor small { margin-top: 3px; color: var(--muted-ink); font-size: 11px; font-weight: 700; }
+
+.garage-upgrade.is-unlocked { border-color: #8fc4a0; background: #e7f6ea; }
+
+.garage-upgrade.is-unlocked .garage-upgrade-mark { background: var(--green); color: white; }
+
+.garage-upgrade.is-locked { color: #718389; }
+
+.region-honors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+.region-honor { min-height: 76px; padding: 10px 12px; }
+
+.region-honor.is-bronze .region-medal { background: #b9744d; color: white; }
+.region-honor.is-silver .region-medal { background: #aebdc4; color: var(--ink); }
+.region-honor.is-gold .region-medal { background: var(--yellow); color: var(--ink); }
+
+.stage-honors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+.stage-honor { min-height: 74px; padding: 11px 14px; }
+
+.stage-honor > .ui-icon { flex: 0 0 auto; width: 30px; height: 30px; color: #7b8d90; }
+
+.stage-honor.is-earned { border-color: #e2af2b; background: #fff5cc; }
+
+.stage-honor.is-earned > .ui-icon { color: var(--yellow-dark); }
 
 /* Lesson and completion scenes */
 .lesson-shell, .completion-shell { display: grid; grid-template-rows: auto minmax(260px, 43svh) 1fr; }
@@ -476,6 +557,9 @@ button.project-node { cursor: pointer; }
   .course-summary { grid-template-columns: repeat(3, minmax(90px, 1fr)); }
   .course-summary p { grid-column: 1 / -1; padding: 10px 0; border-top: 1px solid var(--line); }
   .course-filters { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  .garage-fleet { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+  .garage-upgrades { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .region-honors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {
@@ -491,7 +575,8 @@ button.project-node { cursor: pointer; }
   .world-map { padding-inline: 12px; }
   .map-heading { grid-template-columns: 1fr; gap: 14px; }
   .map-heading h1 { font-size: 27px; }
-  .continue-course { width: 100%; }
+  .map-actions { align-items: stretch; flex-direction: column-reverse; }
+  .continue-course, .garage-button { width: 100%; }
   .region-map { gap: 9px; margin-top: 18px; }
   .map-notice { align-items: stretch; flex-direction: column; }
   .region-landmark { aspect-ratio: 1.35; }
@@ -527,6 +612,17 @@ button.project-node { cursor: pointer; }
   .course-toolbar { align-items: stretch; flex-direction: column; }
   .course-filters { width: 100%; }
   .export-progress { width: 100%; }
+  .garage-shell .garage-count { display: none; }
+  .garage-main { padding-inline: 12px; }
+  .garage-heading { align-items: stretch; flex-direction: column; }
+  .garage-heading h1 { font-size: 27px; }
+  .garage-back { width: 100%; }
+  .garage-section-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .garage-section-heading span { text-align: left; }
+  .garage-fleet { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .garage-vehicle { height: 132px; }
+  .garage-vehicle-art { height: 88px; }
+  .garage-upgrades, .region-honors, .stage-honors { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -9,6 +9,11 @@ import {
 } from './game-core.js';
 import { getSceneState } from './scene-model.js';
 import {
+  STAGE_HONOR_MILESTONES,
+  regionMedal,
+  vehicleUnlocks,
+} from './honors.js';
+import {
   clearActiveLesson,
   loadActiveLesson,
   loadProgress,
@@ -33,6 +38,7 @@ import { renderCompletion } from './views/completion-view.js';
 import { renderCourseTable } from './views/course-table-view.js';
 import { renderLesson } from './views/lesson-view.js';
 import { renderMap } from './views/map-view.js';
+import { renderGarage } from './views/garage-view.js';
 
 const app = document.querySelector('#app');
 const settingsDialog = document.querySelector('#settings-dialog');
@@ -143,6 +149,24 @@ function lessonModel() {
   };
 }
 
+function garageModel() {
+  const honors = new Set(progress.honors ?? []);
+  return {
+    vehicleIds: [...new Set(PROJECTS.map((project) => project.vehicle))],
+    completedProjectCount: completedProjectIds().length,
+    vehicleUpgrades: vehicleUnlocks(progress),
+    stageHonorIds: STAGE_HONOR_MILESTONES
+      .filter((honor) => honors.has(honor.id))
+      .map((honor) => honor.id),
+    regionMedals: REGIONS.map((region) => ({
+      regionId: region.id,
+      title: region.title,
+      medal: regionMedal(progress, region.id),
+    })),
+    soundEnabled: progress.settings.soundEnabled,
+  };
+}
+
 function completionModel() {
   const lesson = lessonState.lesson;
   const project = getProject(lesson.projectId);
@@ -181,6 +205,7 @@ function render() {
   try {
     if (screen === 'lesson') app.innerHTML = renderLesson(lessonModel());
     else if (screen === 'completion') app.innerHTML = renderCompletion(completionModel());
+    else if (screen === 'garage') app.innerHTML = renderGarage(garageModel());
     else app.innerHTML = renderMap(mapModel());
   } catch (error) {
     recoverToMap();
@@ -401,7 +426,13 @@ app.addEventListener('click', (event) => {
     const { action } = actionTarget.dataset;
     if (action === 'continue-course') beginLesson(currentLessonId());
     else if (action === 'open-project') beginLesson(getLessonsForProject(actionTarget.dataset.project)[0]?.id);
-    else if (action === 'answer') handleAnswer(actionTarget.dataset.answer);
+    else if (action === 'open-garage') {
+      screen = 'garage';
+      render();
+    } else if (action === 'close-garage') {
+      screen = 'map';
+      render();
+    } else if (action === 'answer') handleAnswer(actionTarget.dataset.answer);
     else if (action === 'repeat-speech') repeatSpeech();
     else if (action === 'continue-interaction') continueInteraction();
     else if (action === 'toggle-sound') toggleSound();

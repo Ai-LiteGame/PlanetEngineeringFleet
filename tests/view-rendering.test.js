@@ -28,6 +28,7 @@ test('map exposes one primary continue action and all region landmarks', () => {
   });
 
   assert.equal((html.match(/data-action="continue-course"/g) ?? []).length, 1);
+  assert.equal((html.match(/data-action="open-garage"/g) ?? []).length, 1);
   assert.match(html, /data-current-lesson="lesson-001"/);
   assert.match(html, /assets\/construction-fleet\.svg#excavator/);
   for (const region of REGIONS) {

@@ -1,5 +1,6 @@
 import { QUESTION_BANKS } from './content.js';
 import { getLesson, LESSONS } from './curriculum/index.js';
+import { awardLessonCompletion } from './honors.js';
 import { buildLessonInteractions } from './question-factories.js';
 import { createSkillRecord, recordSkillAttempt } from './mastery.js';
 import { clearActiveLesson, recordLessonViewed, saveProgress } from './storage.js';
@@ -445,11 +446,15 @@ export function commitLessonCompletion(state, progress, storage, now = Date.now(
     || state.completionId !== `${state.lessonId}:${state.completionCount}`) {
     return completedProgress;
   }
-  const completion = completedProgress?.lastCompletion;
+  const lesson = getLesson(state.lessonId);
+  const awardedProgress = lesson
+    ? awardLessonCompletion(completedProgress, lesson, completedProgress.skills)
+    : completedProgress;
+  const completion = awardedProgress?.lastCompletion;
   if (completion?.id !== state?.completionId || !completion.effects.clearActiveLesson) {
-    return completedProgress;
+    return awardedProgress;
   }
-  if (!saveProgress(storage, completedProgress)) return completedProgress;
+  if (!saveProgress(storage, awardedProgress)) return awardedProgress;
   clearActiveLesson(storage);
-  return completedProgress;
+  return awardedProgress;
 }

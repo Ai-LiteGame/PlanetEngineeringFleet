@@ -104,9 +104,14 @@ export function renderMap(model) {
             <h1 id="map-title">${escapeHtml(currentProject.title)}</h1>
             <p>${escapeHtml(currentProject.outcome)}</p>
           </div>
-          <button class="primary-button continue-course" type="button" data-action="continue-course">
-            ${icon('play')}<span>继续施工</span>
-          </button>
+          <div class="map-actions">
+            <button class="secondary-button garage-button" type="button" data-action="open-garage">
+              ${icon('star')}<span>我的车库</span>
+            </button>
+            <button class="primary-button continue-course" type="button" data-action="continue-course">
+              ${icon('play')}<span>继续施工</span>
+            </button>
+          </div>
         </div>
         ${storageWarning}${errorNotice}
         <ol class="region-map" aria-label="六大工程区域">
