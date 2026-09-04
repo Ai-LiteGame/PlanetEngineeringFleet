@@ -74,8 +74,23 @@ test('Chinese associations avoid audited formal, incomplete, and weak terms', ()
   assert.deepEqual(Object.fromEntries([
     '目', '少', '甜', '住', '会', '铜', '正', '颈', '推',
   ].map((char) => [char, wordsByCharacter.get(char)])), {
-    目: '节目', 少: '少量', 甜: '甜味', 住: '住校', 会: '会唱',
+    目: '节目', 少: '少量', 甜: '甜味', 住: '住校', 会: '学会',
     铜: '铜钱', 正: '正方形', 颈: '长颈鹿', 推: '推土机',
+  });
+});
+
+test('Chinese association records use complete terms in natural child contexts', () => {
+  const incompleteWords = new Set(['会唱', '递给', '载人']);
+  assert.equal(CHINESE_ITEMS.some(({ word }) => incompleteWords.has(word)), false);
+
+  const recordsByCharacter = new Map(CHINESE_ITEMS.map((item) => [item.char, item]));
+  assert.deepEqual(Object.fromEntries(['会', '递', '载'].map((char) => {
+    const { word, example } = recordsByCharacter.get(char);
+    return [char, { word, example }];
+  })), {
+    会: { word: '学会', example: '我学会唱一首儿歌。' },
+    递: { word: '快递', example: '快递员送来一本图画书。' },
+    载: { word: '运载', example: '校车可以运载很多小朋友。' },
   });
 });
 
