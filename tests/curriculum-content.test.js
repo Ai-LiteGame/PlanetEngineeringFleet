@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
 import {
   CHINESE_ITEMS,
   ENGLISH_WORDS,
@@ -20,6 +22,17 @@ test('curriculum inventory has exact unique content counts', () => {
   assert.equal(new Set(ENGLISH_WORDS.map((item) => item.word.toLowerCase())).size, 300);
   assert.equal(ENGLISH_PATTERNS.length, 100);
   assert.equal(new Set(ENGLISH_PATTERNS.map((item) => item.text)).size, 100);
+  assert.equal(MATH_SKILLS.length, 33);
+  assert.equal(new Set(MATH_SKILLS.map((item) => item.id)).size, 33);
+});
+
+test('README documents the exact curriculum inventory', async () => {
+  const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+
+  assert.match(
+    readme,
+    /700 个去重汉字、300 个去重英语词汇、100 个去重交流句型，并覆盖 33 个数学技能（分属 11 类数学能力）/,
+  );
 });
 
 test('curriculum tier distributions match the long-form progression', () => {
