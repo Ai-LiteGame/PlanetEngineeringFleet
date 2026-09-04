@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile, stat } from 'node:fs/promises';
+import { inflateSync } from 'node:zlib';
 
 const root = new URL('../', import.meta.url);
 
@@ -17,6 +18,57 @@ async function runtimeFiles(directory, suffixes) {
   }
 
   return files;
+}
+
+function decodeRgbaPng(bytes) {
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  assert.equal(bytes[24], 8, 'PNG bit depth');
+  assert.equal(bytes[25], 6, 'PNG color type');
+
+  const idat = [];
+  for (let offset = 8; offset < bytes.length;) {
+    const length = bytes.readUInt32BE(offset);
+    const type = bytes.toString('ascii', offset + 4, offset + 8);
+    if (type === 'IDAT') idat.push(bytes.subarray(offset + 8, offset + 8 + length));
+    offset += length + 12;
+  }
+
+  const compressed = inflateSync(Buffer.concat(idat));
+  const stride = width * 4;
+  const pixels = Buffer.alloc(stride * height);
+  let offset = 0;
+
+  for (let y = 0; y < height; y += 1) {
+    const filter = compressed[offset];
+    offset += 1;
+    const row = pixels.subarray(y * stride, (y + 1) * stride);
+    const previous = y === 0 ? null : pixels.subarray((y - 1) * stride, y * stride);
+
+    for (let x = 0; x < stride; x += 1) {
+      const value = compressed[offset + x];
+      const left = x < 4 ? 0 : row[x - 4];
+      const above = previous?.[x] ?? 0;
+      const upperLeft = x < 4 ? 0 : previous?.[x - 4] ?? 0;
+      if (filter === 0) row[x] = value;
+      if (filter === 1) row[x] = (value + left) & 0xff;
+      if (filter === 2) row[x] = (value + above) & 0xff;
+      if (filter === 3) row[x] = (value + Math.floor((left + above) / 2)) & 0xff;
+      if (filter === 4) {
+        const estimate = left + above - upperLeft;
+        const leftDistance = Math.abs(estimate - left);
+        const aboveDistance = Math.abs(estimate - above);
+        const upperLeftDistance = Math.abs(estimate - upperLeft);
+        const predictor = leftDistance <= aboveDistance && leftDistance <= upperLeftDistance
+          ? left
+          : aboveDistance <= upperLeftDistance ? above : upperLeft;
+        row[x] = (value + predictor) & 0xff;
+      }
+    }
+    offset += stride;
+  }
+
+  return { width, height, pixels };
 }
 
 test('manifest exposes an installable relative-scope standalone app', async () => {
@@ -47,6 +99,45 @@ test('committed PNG icons have their declared dimensions', async () => {
     assert.equal(bytes.readUInt32BE(20), size, name);
     assert.equal((await stat(new URL(`../assets/icons/${name}`, import.meta.url))).size > 1000, true, name);
   }
+});
+
+test('maskable PNG keeps excavator paint inside the central 60 percent safe area', async () => {
+  const png = decodeRgbaPng(await readFile(new URL('../assets/icons/icon-maskable-512.png', import.meta.url)));
+  const boundary = png.width * 0.2;
+  const paintedPixels = [];
+
+  for (let y = 0; y < png.height; y += 1) {
+    for (let x = 0; x < png.width; x += 1) {
+      const offset = (y * png.width + x) * 4;
+      const red = png.pixels[offset];
+      const green = png.pixels[offset + 1];
+      const blue = png.pixels[offset + 2];
+      if ((red === 246 && green === 200 && blue === 76) || (red === 217 && green === 101 && blue === 82)) {
+        paintedPixels.push([x, y]);
+      }
+    }
+  }
+
+  const vehiclePixels = [...paintedPixels];
+  for (const [paintedX, paintedY] of paintedPixels) {
+    for (let y = Math.max(0, paintedY - 12); y <= Math.min(png.height - 1, paintedY + 12); y += 1) {
+      for (let x = Math.max(0, paintedX - 12); x <= Math.min(png.width - 1, paintedX + 12); x += 1) {
+        const offset = (y * png.width + x) * 4;
+        if (png.pixels[offset] === 22 && png.pixels[offset + 1] === 54 && png.pixels[offset + 2] === 83) {
+          vehiclePixels.push([x, y]);
+        }
+      }
+    }
+  }
+
+  assert.equal(paintedPixels.length > 100, true, 'excavator paint is present');
+  const unsafePixels = vehiclePixels.filter(([x, y]) => x < boundary || x >= png.width - boundary || y < boundary || y >= png.height - boundary);
+  assert.equal(unsafePixels.length, 0, `unsafe vehicle pixel bounds: ${JSON.stringify({
+    left: Math.min(...unsafePixels.map(([x]) => x)),
+    right: Math.max(...unsafePixels.map(([x]) => x)),
+    top: Math.min(...unsafePixels.map(([, y]) => y)),
+    bottom: Math.max(...unsafePixels.map(([, y]) => y)),
+  })}`);
 });
 
 test('shared asset list declares each current runtime resource exactly once', async () => {
