@@ -2,14 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  DEFAULT_PROGRESS,
-  serializeProgress,
-  parseProgress,
+  ACTIVE_KEY,
+  LEGACY_STORAGE_KEY,
+  STORAGE_KEY,
+  createProgressV2,
+  exportProgress,
+  getMigrationBackup,
+  loadActiveLesson,
   loadProgress,
+  parseProgress,
+  recordLessonViewed,
+  saveActiveLesson,
   saveProgress,
-  loadActiveStage,
-  saveActiveStage,
-  clearActiveStage,
 } from '../src/storage.js';
 
 function memoryStorage() {
@@ -21,49 +25,130 @@ function memoryStorage() {
   };
 }
 
-test('valid progress survives a serialized round trip', () => {
-  const progress = {
+test('version one progress migrates known skills to schedulable version two IDs', () => {
+  const old = JSON.stringify({
     version: 1,
-    sessionsCompleted: 2,
-    bridgeStage: 2,
+    sessionsCompleted: 4,
+    bridgeStage: 3,
     soundEnabled: false,
-    skills: { 'zh:桥': { independentStreak: 3, helpStreak: 0, masteredAtSession: 2 } },
+    skills: {
+      'zh:桥': { independentStreak: 3, helpStreak: 0, masteredAtSession: 3 },
+      'en:blue': { independentStreak: 1, helpStreak: 0, masteredAtSession: null },
+      'math:count': { independentStreak: 1, helpStreak: 1, masteredAtSession: null },
+      'mixed:delivery': { independentStreak: 0, helpStreak: 2, masteredAtSession: null },
+      'zh:orphan': { independentStreak: 9, helpStreak: 0, masteredAtSession: 4 },
+    },
+  });
+
+  const progress = parseProgress(old);
+
+  assert.equal(progress.version, 2);
+  assert.equal(progress.settings.soundEnabled, false);
+  assert.equal(progress.skills['zh-197'].status, 'mastered');
+  assert.ok(progress.skills['en-word-060']);
+  assert.ok(progress.skills['math-number-sense-1']);
+  assert.deepEqual(Object.hasOwn(progress.skills, 'zh:orphan'), false);
+  assert.equal(progress.lessons['lesson-001'].status, 'practiced');
+  assert.equal(progress.lessons['lesson-001'].completedCount, 1);
+});
+
+test('version two progress round trips while de-duplicating honor IDs', () => {
+  const progress = createProgressV2();
+  progress.honors = ['badge:bridge', 'badge:bridge', 'badge:crane'];
+
+  const restored = parseProgress(JSON.stringify(progress));
+
+  assert.deepEqual(restored.honors, ['badge:bridge', 'badge:crane']);
+  assert.equal(restored.storageAvailable, true);
+});
+
+test('invalid lesson statuses fall back to a fresh version two value', () => {
+  const malformed = {
+    ...createProgressV2(),
+    lessons: {
+      'lesson-001': {
+        status: 'complete', viewedAt: null, completedCount: 0, lastCompletedAt: null,
+      },
+    },
   };
-  assert.deepEqual(parseProgress(serializeProgress(progress)), progress);
+
+  assert.deepEqual(parseProgress(JSON.stringify(malformed)), createProgressV2());
 });
 
-test('malformed or incompatible progress falls back to a fresh value', () => {
-  assert.deepEqual(parseProgress('{bad json'), DEFAULT_PROGRESS);
-  assert.deepEqual(parseProgress('{"version":2}'), DEFAULT_PROGRESS);
-  assert.deepEqual(parseProgress('{"version":1,"sessionsCompleted":"two"}'), DEFAULT_PROGRESS);
+test('migration failures preserve raw input for recovery', () => {
+  const corrupted = '{not json';
+
+  assert.deepEqual(parseProgress(corrupted), createProgressV2());
+  assert.equal(getMigrationBackup(), corrupted);
 });
 
-test('storage exceptions do not block loading or saving', () => {
+test('load prefers version two and migrates version one only when needed', () => {
+  const storage = memoryStorage();
+  const v2 = createProgressV2();
+  v2.currentLessonId = 'lesson-014';
+  storage.setItem(STORAGE_KEY, JSON.stringify(v2));
+  storage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({
+    version: 1, sessionsCompleted: 1, bridgeStage: 1, soundEnabled: false, skills: {},
+  }));
+
+  assert.equal(loadProgress(storage).currentLessonId, 'lesson-014');
+
+  storage.removeItem(STORAGE_KEY);
+  assert.equal(loadProgress(storage).settings.soundEnabled, false);
+});
+
+test('storage exceptions preserve a usable in-memory value and mark it unavailable', () => {
   const broken = {
     getItem() { throw new Error('blocked'); },
     setItem() { throw new Error('blocked'); },
   };
-  assert.deepEqual(loadProgress(broken), DEFAULT_PROGRESS);
-  assert.equal(saveProgress(broken, DEFAULT_PROGRESS), false);
+  const progress = createProgressV2();
+
+  assert.equal(loadProgress(broken).storageAvailable, false);
+  assert.equal(saveProgress(broken, progress), false);
+  assert.equal(progress.storageAvailable, false);
 });
 
-test('load and save use the supplied storage implementation', () => {
+test('lesson snapshot round trips only stable state', () => {
   const storage = memoryStorage();
-  const progress = { ...DEFAULT_PROGRESS, sessionsCompleted: 1, bridgeStage: 1 };
-  assert.equal(saveProgress(storage, progress), true);
-  assert.deepEqual(loadProgress(storage), progress);
+
+  assert.equal(saveActiveLesson(storage, {
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, animationFrame: 999,
+  }), true);
+  assert.equal(storage.getItem(ACTIVE_KEY).includes('animationFrame'), false);
+  assert.deepEqual(loadActiveLesson(storage), {
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17,
+  });
 });
 
-test('active stage snapshot restores only the current station and seed', () => {
+test('invalid active lesson snapshots are ignored', () => {
   const storage = memoryStorage();
-  assert.equal(saveActiveStage(storage, { seed: 81, stage: 'math' }), true);
-  assert.deepEqual(loadActiveStage(storage), { seed: 81, stage: 'math' });
-  clearActiveStage(storage);
-  assert.equal(loadActiveStage(storage), null);
+  storage.setItem(ACTIVE_KEY, JSON.stringify({ lessonId: 'lesson-014', interactionIndex: -1, seed: 4 }));
+
+  assert.equal(loadActiveLesson(storage), null);
 });
 
-test('invalid active stage snapshots are ignored', () => {
-  const storage = memoryStorage();
-  storage.setItem('space-construction-fleet.active.v1', JSON.stringify({ seed: 4, stage: 'complete' }));
-  assert.equal(loadActiveStage(storage), null);
+test('export produces indented parseable version two JSON without transient data', () => {
+  const progress = createProgressV2();
+  progress.recordings = ['audio data'];
+  progress.browser = { userAgent: 'test' };
+
+  const json = exportProgress(progress);
+  const value = JSON.parse(json);
+
+  assert.match(json, /\n  "version": 2/);
+  assert.equal(value.version, 2);
+  assert.equal(value.recordings, undefined);
+  assert.equal(value.browser, undefined);
+  assert.equal(typeof value.exportedAt, 'number');
+  assert.equal(parseProgress(json).version, 2);
+});
+
+test('watching a briefing records viewed without recording practice', () => {
+  const progress = recordLessonViewed(createProgressV2(), 'lesson-001', 2000);
+
+  assert.equal(progress.lessons['lesson-001'].status, 'viewed');
+  assert.equal(progress.lessons['lesson-001'].viewedAt, 2000);
+  assert.equal(progress.lessons['lesson-001'].completedCount, 0);
+  assert.equal(progress.lessons['lesson-001'].lastCompletedAt, null);
 });
