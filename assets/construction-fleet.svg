@@ -1,61 +1,333 @@
 <svg xmlns="http://www.w3.org/2000/svg">
-  <symbol id="excavator" viewBox="0 0 260 140">
-    <g stroke="#243849" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M82 98H193L211 117H66Z" fill="#F4B72B"/>
-      <rect x="100" y="53" width="76" height="49" rx="7" fill="#F4B72B"/>
-      <path d="M115 56V32H157L174 56Z" fill="#F4B72B"/>
-      <path d="M122 38H151L161 55H122Z" fill="#8ED6E5"/>
-      <path d="M105 69L65 42 25 91" fill="none" stroke="#F4B72B" stroke-width="14"/>
-      <path d="M25 91L15 117H57L45 91Z" fill="#E89A24"/>
-      <rect x="65" y="110" width="150" height="20" rx="10" fill="#34495C"/>
-      <circle cx="90" cy="120" r="11" fill="#172737"/>
-      <circle cx="190" cy="120" r="11" fill="#172737"/>
-      <path d="M181 73H201V103H181Z" fill="#E85E4F"/>
+  <symbol id="excavator" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <path d="M116 118H238L253 139H93Z" fill="#F4B72B"/>
+        <rect x="137" y="78" width="88" height="44" rx="8" fill="#FFCA3A"/>
+        <rect x="105" y="112" width="133" height="18" rx="5" fill="#E89A24"/>
+      </g>
+      <g class="cab">
+        <path d="M151 78V47H201L220 78Z" fill="#FFD75E"/>
+        <path d="M160 55H194L207 75H160Z" fill="#8ED9E8"/>
+        <path d="M184 55V75" fill="none" stroke-width="3"/>
+      </g>
+      <g class="tool">
+        <path d="M145 91L105 51 53 95" fill="none" stroke="#F4B72B" stroke-width="15"/>
+        <circle cx="105" cy="51" r="7" fill="#E89A24"/>
+        <path d="M53 95L30 99 20 132H64L70 116Z" fill="#EA8D24"/>
+        <path d="M28 123H63" fill="none" stroke="#B96820" stroke-width="4"/>
+      </g>
+      <g class="wheels">
+        <rect x="89" y="130" width="168" height="31" rx="16" fill="#34495C"/>
+        <rect x="104" y="138" width="138" height="15" rx="7" fill="#607382" stroke-width="3"/>
+        <circle cx="119" cy="145" r="11" fill="#243746" stroke="#91A0AA" stroke-width="4"/>
+        <circle cx="226" cy="145" r="11" fill="#243746" stroke="#91A0AA" stroke-width="4"/>
+      </g>
+      <g class="lights">
+        <rect x="207" y="90" width="16" height="12" rx="3" fill="#FF6B4A"/>
+        <path d="M215 83V74M228 87L235 80" fill="none" stroke="#FFE36E" stroke-width="4"/>
+      </g>
     </g>
   </symbol>
 
-  <symbol id="mixer" viewBox="0 0 260 140">
-    <g stroke="#243849" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="34" y="77" width="192" height="38" rx="8" fill="#F4B72B"/>
-      <path d="M38 77V48H91L113 77Z" fill="#F4B72B"/>
-      <path d="M50 56H84L98 75H50Z" fill="#8ED6E5"/>
-      <path d="M119 43C157 26 199 44 211 76L188 101H137C116 84 107 60 119 43Z" fill="#F1F4ED"/>
-      <path d="M132 41L196 89M169 34L211 68" fill="none" stroke="#E85E4F" stroke-width="9"/>
-      <path d="M208 76L231 87V101H211" fill="#D5DCE3"/>
-      <circle cx="72" cy="116" r="17" fill="#263B4D"/>
-      <circle cx="72" cy="116" r="7" fill="#9CAAB5"/>
-      <circle cx="190" cy="116" r="17" fill="#263B4D"/>
-      <circle cx="190" cy="116" r="7" fill="#9CAAB5"/>
+  <symbol id="bulldozer" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <path d="M76 106H225L246 135H65Z" fill="#F4B72B"/>
+        <rect x="100" y="88" width="117" height="32" rx="7" fill="#FFCA3A"/>
+        <path d="M205 92L234 96 246 119H213Z" fill="#E89A24"/>
+      </g>
+      <g class="cab">
+        <path d="M120 88V47H184L205 88Z" fill="#FFD75E"/>
+        <path d="M130 56H177L191 84H130Z" fill="#8ED9E8"/>
+        <path d="M160 56V84" fill="none" stroke-width="3"/>
+        <path d="M141 46V35H159" fill="none"/>
+      </g>
+      <g class="tool">
+        <path d="M91 103L53 112M84 120L51 130" fill="none" stroke="#E89A24" stroke-width="9"/>
+        <path d="M49 93L17 105 28 153 63 145Z" fill="#F06E43"/>
+        <path d="M25 111L54 103M31 130L59 122" fill="none" stroke="#FFAB62" stroke-width="4"/>
+        <path d="M244 114L270 105 277 135" fill="none" stroke="#E89A24" stroke-width="8"/>
+      </g>
+      <g class="wheels">
+        <rect x="62" y="126" width="195" height="36" rx="18" fill="#34495C"/>
+        <rect x="78" y="136" width="163" height="16" rx="8" fill="#607382" stroke-width="3"/>
+        <circle cx="94" cy="144" r="12" fill="#243746" stroke="#91A0AA" stroke-width="4"/>
+        <circle cx="225" cy="144" r="12" fill="#243746" stroke="#91A0AA" stroke-width="4"/>
+      </g>
+      <g class="lights">
+        <rect x="199" y="96" width="18" height="12" rx="3" fill="#FFF176"/>
+        <path d="M208 88V78" fill="none" stroke="#FFF176" stroke-width="4"/>
+      </g>
     </g>
   </symbol>
 
-  <symbol id="crane" viewBox="0 0 260 140">
-    <g stroke="#243849" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="30" y="83" width="168" height="33" rx="8" fill="#F4B72B"/>
-      <path d="M35 83V54H87L107 83Z" fill="#F4B72B"/>
-      <path d="M47 62H81L94 80H47Z" fill="#8ED6E5"/>
-      <path d="M113 84L134 27H148L174 84" fill="#E89A24"/>
-      <path d="M140 29L227 28M147 40L211 61M225 29V79" fill="none" stroke="#F4B72B" stroke-width="9"/>
-      <path d="M225 79V103M215 103H235" fill="none"/>
-      <rect x="208" y="102" width="34" height="23" rx="3" fill="#E85E4F"/>
-      <circle cx="68" cy="117" r="17" fill="#263B4D"/>
-      <circle cx="68" cy="117" r="7" fill="#9CAAB5"/>
-      <circle cx="166" cy="117" r="17" fill="#263B4D"/>
-      <circle cx="166" cy="117" r="7" fill="#9CAAB5"/>
+  <symbol id="crane" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <rect x="41" y="108" width="194" height="36" rx="8" fill="#F4B72B"/>
+        <rect x="128" y="91" width="79" height="27" rx="5" fill="#E89A24"/>
+        <path d="M208 113H249L262 143H221Z" fill="#FFCA3A"/>
+      </g>
+      <g class="cab">
+        <path d="M47 108V71H104L127 108Z" fill="#FFD75E"/>
+        <path d="M57 80H97L113 105H57Z" fill="#8ED9E8"/>
+        <path d="M84 80V105" fill="none" stroke-width="3"/>
+      </g>
+      <g class="tool">
+        <path d="M147 93L167 33H181L203 93" fill="#E89A24"/>
+        <path d="M174 34L290 31M180 45L263 72" fill="none" stroke="#FFCA3A" stroke-width="10"/>
+        <path d="M288 32V105" fill="none" stroke-width="3"/>
+        <path d="M280 105H296L293 119C291 132 274 132 272 119" fill="none" stroke="#F06E43"/>
+        <circle cx="174" cy="34" r="6" fill="#F06E43"/>
+      </g>
+      <g class="wheels">
+        <circle cx="77" cy="145" r="22" fill="#34495C"/>
+        <circle cx="77" cy="145" r="9" fill="#91A0AA"/>
+        <circle cx="204" cy="145" r="22" fill="#34495C"/>
+        <circle cx="204" cy="145" r="9" fill="#91A0AA"/>
+        <circle cx="248" cy="145" r="16" fill="#34495C"/>
+        <circle cx="248" cy="145" r="6" fill="#91A0AA"/>
+      </g>
+      <g class="lights">
+        <rect x="41" y="113" width="15" height="11" rx="3" fill="#FF6B4A"/>
+        <rect x="222" y="116" width="17" height="11" rx="3" fill="#FFF176"/>
+      </g>
     </g>
   </symbol>
 
-  <symbol id="dump-truck" viewBox="0 0 260 140">
-    <g stroke="#243849" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="35" y="81" width="192" height="35" rx="8" fill="#F4B72B"/>
-      <path d="M36 81V48H91L114 81Z" fill="#F4B72B"/>
-      <path d="M49 57H84L99 78H49Z" fill="#8ED6E5"/>
-      <path d="M113 43H225L205 91H131Z" fill="#E85E4F"/>
-      <path d="M125 53H211M134 70H204" fill="none" stroke="#F3A095" stroke-width="5"/>
-      <circle cx="73" cy="117" r="17" fill="#263B4D"/>
-      <circle cx="73" cy="117" r="7" fill="#9CAAB5"/>
-      <circle cx="188" cy="117" r="17" fill="#263B4D"/>
-      <circle cx="188" cy="117" r="7" fill="#9CAAB5"/>
+  <symbol id="mixer" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <rect x="38" y="108" width="224" height="37" rx="8" fill="#37B8AA"/>
+        <path d="M230 108H266L281 142H250Z" fill="#27988E"/>
+        <rect x="117" y="100" width="111" height="21" rx="6" fill="#F4B72B"/>
+      </g>
+      <g class="cab">
+        <path d="M43 108V68H101L127 108Z" fill="#44CDBD"/>
+        <path d="M54 78H94L112 104H54Z" fill="#A9E9EF"/>
+        <path d="M82 78V104" fill="none" stroke-width="3"/>
+      </g>
+      <g class="tool">
+        <path d="M130 62C167 38 220 50 241 88L217 116H153C128 100 118 78 130 62Z" fill="#F7F3E8"/>
+        <path d="M145 56L222 109M183 49L239 89" fill="none" stroke="#F06E43" stroke-width="10"/>
+        <circle cx="184" cy="82" r="10" fill="#FFCA3A"/>
+        <path d="M239 88L271 99V116H240" fill="#CCD7DD"/>
+      </g>
+      <g class="wheels">
+        <circle cx="79" cy="146" r="22" fill="#34495C"/>
+        <circle cx="79" cy="146" r="9" fill="#91A0AA"/>
+        <circle cx="221" cy="146" r="22" fill="#34495C"/>
+        <circle cx="221" cy="146" r="9" fill="#91A0AA"/>
+        <circle cx="265" cy="146" r="16" fill="#34495C"/>
+        <circle cx="265" cy="146" r="6" fill="#91A0AA"/>
+      </g>
+      <g class="lights">
+        <rect x="39" y="113" width="15" height="11" rx="3" fill="#FF6B4A"/>
+        <rect x="111" y="112" width="15" height="10" rx="3" fill="#FFF176"/>
+      </g>
+    </g>
+  </symbol>
+
+  <symbol id="dump-truck" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <rect x="37" y="108" width="230" height="37" rx="8" fill="#F4B72B"/>
+        <path d="M225 109H272L284 144H244Z" fill="#E89A24"/>
+        <rect x="121" y="100" width="119" height="20" rx="6" fill="#FFCA3A"/>
+      </g>
+      <g class="cab">
+        <path d="M43 108V67H103L130 108Z" fill="#FFD75E"/>
+        <path d="M54 77H96L115 104H54Z" fill="#8ED9E8"/>
+        <path d="M83 77V104" fill="none" stroke-width="3"/>
+      </g>
+      <g class="tool">
+        <path d="M126 51H276L253 105H150Z" fill="#F06E43"/>
+        <path d="M143 63H260M151 82H252" fill="none" stroke="#FFAA84" stroke-width="5"/>
+        <path d="M143 104L130 118M258 105L270 119" fill="none" stroke="#E89A24" stroke-width="7"/>
+      </g>
+      <g class="wheels">
+        <circle cx="79" cy="146" r="22" fill="#34495C"/>
+        <circle cx="79" cy="146" r="9" fill="#91A0AA"/>
+        <circle cx="222" cy="146" r="22" fill="#34495C"/>
+        <circle cx="222" cy="146" r="9" fill="#91A0AA"/>
+        <circle cx="266" cy="146" r="17" fill="#34495C"/>
+        <circle cx="266" cy="146" r="7" fill="#91A0AA"/>
+      </g>
+      <g class="lights">
+        <rect x="38" y="114" width="16" height="11" rx="3" fill="#FF6B4A"/>
+        <rect x="114" y="112" width="16" height="10" rx="3" fill="#FFF176"/>
+      </g>
+    </g>
+  </symbol>
+
+  <symbol id="roller" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <path d="M105 103H252L271 139H91Z" fill="#A7D948"/>
+        <rect x="122" y="86" width="105" height="39" rx="7" fill="#BCE85F"/>
+        <path d="M218 102H259L272 132H231Z" fill="#87BD34"/>
+      </g>
+      <g class="cab">
+        <path d="M134 86V47H201L220 86Z" fill="#C7F06A"/>
+        <path d="M145 56H193L207 82H145Z" fill="#8ED9E8"/>
+        <path d="M173 56V82" fill="none" stroke-width="3"/>
+        <path d="M132 47H205" fill="none" stroke="#F4B72B" stroke-width="8"/>
+      </g>
+      <g class="tool">
+        <path d="M113 112L70 118M112 135L71 140" fill="none" stroke="#87BD34" stroke-width="8"/>
+        <rect x="24" y="107" width="58" height="54" rx="24" fill="#637784"/>
+        <path d="M39 110V158M56 108V160" fill="none" stroke="#91A0AA" stroke-width="4"/>
+        <path d="M29 130H77" fill="none" stroke="#BCC6CC" stroke-width="3"/>
+      </g>
+      <g class="wheels">
+        <circle cx="224" cy="143" r="25" fill="#34495C"/>
+        <circle cx="224" cy="143" r="10" fill="#91A0AA"/>
+        <circle cx="268" cy="143" r="17" fill="#34495C"/>
+        <circle cx="268" cy="143" r="7" fill="#91A0AA"/>
+      </g>
+      <g class="lights">
+        <rect x="111" y="99" width="17" height="12" rx="3" fill="#FFF176"/>
+        <path d="M121 91V80M108 93L101 85" fill="none" stroke="#FFF176" stroke-width="4"/>
+      </g>
+    </g>
+  </symbol>
+
+  <symbol id="forklift" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <path d="M83 108H222L242 143H69Z" fill="#37B8AA"/>
+        <rect x="96" y="88" width="100" height="39" rx="7" fill="#44CDBD"/>
+        <rect x="71" y="113" width="42" height="22" rx="5" fill="#27988E"/>
+      </g>
+      <g class="cab">
+        <path d="M115 87V43H179L199 87Z" fill="#44CDBD"/>
+        <path d="M125 53H172L185 83H125Z" fill="#A9E9EF"/>
+        <path d="M151 53V83" fill="none" stroke-width="3"/>
+        <path d="M108 43H191M113 43L103 87M185 43L202 87" fill="none" stroke-width="7"/>
+      </g>
+      <g class="tool">
+        <path d="M224 47V140M240 47V140M218 47H247" fill="none" stroke="#F4B72B" stroke-width="9"/>
+        <path d="M232 95H277M232 112H277" fill="none" stroke="#E89A24" stroke-width="8"/>
+        <path d="M276 95V103M276 112V120" fill="none"/>
+        <rect x="250" y="69" width="43" height="25" rx="3" fill="#F06E43"/>
+        <path d="M257 69V94M279 69V94" fill="none" stroke="#FFAA84" stroke-width="3"/>
+      </g>
+      <g class="wheels">
+        <circle cx="101" cy="145" r="23" fill="#34495C"/>
+        <circle cx="101" cy="145" r="9" fill="#91A0AA"/>
+        <circle cx="213" cy="145" r="18" fill="#34495C"/>
+        <circle cx="213" cy="145" r="7" fill="#91A0AA"/>
+      </g>
+      <g class="lights">
+        <rect x="194" y="96" width="16" height="11" rx="3" fill="#FFF176"/>
+        <path d="M203 88V78" fill="none" stroke="#FFF176" stroke-width="4"/>
+      </g>
+    </g>
+  </symbol>
+
+  <symbol id="fire-engine" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <rect x="36" y="88" width="242" height="57" rx="9" fill="#EF554A"/>
+        <rect x="119" y="96" width="137" height="38" rx="5" fill="#F36C5F"/>
+        <path d="M132 106H244M132 121H244" fill="none" stroke="#FFAA84" stroke-width="4"/>
+        <circle cx="187" cy="115" r="12" fill="#F7F3E8"/>
+      </g>
+      <g class="cab">
+        <path d="M42 88V52H99L126 88Z" fill="#F36C5F"/>
+        <path d="M53 61H92L110 85H53Z" fill="#A9E9EF"/>
+        <path d="M79 61V85" fill="none" stroke-width="3"/>
+      </g>
+      <g class="tool">
+        <path d="M129 79L174 39H250" fill="none" stroke="#F7F3E8" stroke-width="10"/>
+        <path d="M137 87L180 49H250" fill="none" stroke="#BCC6CC" stroke-width="4"/>
+        <path d="M157 55L179 78M187 40L209 62M218 40L239 62" fill="none" stroke="#EF554A" stroke-width="4"/>
+        <path d="M252 39L286 30M285 30L298 35" fill="none" stroke="#F4B72B" stroke-width="8"/>
+        <path d="M296 39C303 44 304 51 298 57" fill="none" stroke="#48B7DA" stroke-width="6"/>
+      </g>
+      <g class="wheels">
+        <circle cx="79" cy="146" r="23" fill="#34495C"/>
+        <circle cx="79" cy="146" r="9" fill="#91A0AA"/>
+        <circle cx="223" cy="146" r="23" fill="#34495C"/>
+        <circle cx="223" cy="146" r="9" fill="#91A0AA"/>
+        <circle cx="267" cy="146" r="17" fill="#34495C"/>
+        <circle cx="267" cy="146" r="7" fill="#91A0AA"/>
+      </g>
+      <g class="lights">
+        <rect x="62" y="39" width="27" height="13" rx="5" fill="#FFFFFF"/>
+        <path d="M75 38V25M60 34L51 27M91 34L100 27" fill="none" stroke="#57C6EA" stroke-width="5"/>
+        <rect x="264" y="96" width="15" height="12" rx="3" fill="#FFF176"/>
+      </g>
+    </g>
+  </symbol>
+
+  <symbol id="snowplow" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <rect x="84" y="92" width="178" height="51" rx="9" fill="#397FD6"/>
+        <path d="M219 96H268L282 142H242Z" fill="#2C68B8"/>
+        <rect x="109" y="103" width="98" height="27" rx="5" fill="#4C94E8"/>
+      </g>
+      <g class="cab">
+        <path d="M91 92V52H153L180 92Z" fill="#4C94E8"/>
+        <path d="M102 61H146L164 88H102Z" fill="#C8F2FA"/>
+        <path d="M131 61V88" fill="none" stroke-width="3"/>
+      </g>
+      <g class="tool">
+        <path d="M91 111L62 119M90 135L60 142" fill="none" stroke="#F4B72B" stroke-width="8"/>
+        <path d="M57 98L14 118 30 157 72 142Z" fill="#F06E43"/>
+        <path d="M24 122L62 106M31 139L68 123" fill="none" stroke="#FFFFFF" stroke-width="5"/>
+        <circle cx="40" cy="86" r="5" fill="#C8F2FA" stroke="none"/>
+        <circle cx="57" cy="75" r="4" fill="#C8F2FA" stroke="none"/>
+        <circle cx="69" cy="91" r="6" fill="#C8F2FA" stroke="none"/>
+      </g>
+      <g class="wheels">
+        <circle cx="119" cy="145" r="23" fill="#34495C"/>
+        <circle cx="119" cy="145" r="9" fill="#91A0AA"/>
+        <circle cx="229" cy="145" r="23" fill="#34495C"/>
+        <circle cx="229" cy="145" r="9" fill="#91A0AA"/>
+        <circle cx="271" cy="145" r="17" fill="#34495C"/>
+        <circle cx="271" cy="145" r="7" fill="#91A0AA"/>
+      </g>
+      <g class="lights">
+        <rect x="107" y="39" width="26" height="13" rx="5" fill="#F4B72B"/>
+        <path d="M120 37V25M105 34L96 27M135 34L144 27" fill="none" stroke="#FFF176" stroke-width="5"/>
+        <rect x="249" y="101" width="15" height="11" rx="3" fill="#FFF176"/>
+      </g>
+    </g>
+  </symbol>
+
+  <symbol id="tunnel-borer" viewBox="0 0 320 180">
+    <g stroke="#243746" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <g class="body">
+        <path d="M99 76H277L292 137H88Z" fill="#F4B72B"/>
+        <rect x="112" y="87" width="155" height="44" rx="8" fill="#FFCA3A"/>
+        <path d="M222 87H272L283 126H232Z" fill="#E89A24"/>
+        <path d="M132 102H212M132 116H212" fill="none" stroke="#E89A24" stroke-width="4"/>
+      </g>
+      <g class="cab">
+        <path d="M194 76V45H248L268 76Z" fill="#FFD75E"/>
+        <path d="M204 53H241L254 73H204Z" fill="#8ED9E8"/>
+        <path d="M230 53V73" fill="none" stroke-width="3"/>
+      </g>
+      <g class="tool">
+        <circle cx="73" cy="102" r="57" fill="#607382"/>
+        <circle cx="73" cy="102" r="43" fill="#F06E43"/>
+        <circle cx="73" cy="102" r="15" fill="#F4B72B"/>
+        <path d="M73 59V86M73 118V145M30 102H57M89 102H116M43 72L62 91M84 113L103 132M43 132L62 113M84 91L103 72" fill="none" stroke="#FFF3C4" stroke-width="8"/>
+        <path d="M112 80L134 80M113 124L136 124" fill="none" stroke="#E89A24" stroke-width="9"/>
+      </g>
+      <g class="wheels">
+        <rect x="105" y="130" width="185" height="31" rx="15" fill="#34495C"/>
+        <rect x="119" y="138" width="157" height="15" rx="7" fill="#607382" stroke-width="3"/>
+        <circle cx="135" cy="145" r="10" fill="#243746" stroke="#91A0AA" stroke-width="4"/>
+        <circle cx="260" cy="145" r="10" fill="#243746" stroke="#91A0AA" stroke-width="4"/>
+      </g>
+      <g class="lights">
+        <rect x="266" y="88" width="17" height="12" rx="3" fill="#FFF176"/>
+        <path d="M275 81V70M287 84L295 76" fill="none" stroke="#FFF176" stroke-width="4"/>
+      </g>
     </g>
   </symbol>
 </svg>

@@ -1,0 +1,311 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="sunny-town" viewBox="0 0 320 180">
+    <g class="background">
+      <rect width="320" height="180" fill="#BDE9F4"/>
+      <circle cx="273" cy="35" r="18" fill="#FFD34E"/>
+      <path d="M0 93Q42 43 87 91Q132 35 185 91Q238 48 320 89V125H0Z" fill="#75C66D"/>
+      <path d="M0 104Q51 73 101 108Q163 66 223 106Q273 78 320 103V130H0Z" fill="#4EAE62"/>
+      <g fill="#FFFFFF" opacity=".9">
+        <ellipse cx="54" cy="34" rx="24" ry="10"/><ellipse cx="78" cy="35" rx="18" ry="8"/>
+        <ellipse cx="184" cy="24" rx="20" ry="8"/><ellipse cx="203" cy="25" rx="14" ry="7"/>
+      </g>
+    </g>
+    <g class="ground">
+      <path d="M0 111Q80 100 160 111T320 107V180H0Z" fill="#8FD16E"/>
+      <path d="M0 153Q88 137 177 151T320 144V180H0Z" fill="#69B95E"/>
+      <g fill="#FFF176"><circle cx="27" cy="131" r="3"/><circle cx="292" cy="126" r="3"/><circle cx="178" cy="130" r="3"/></g>
+    </g>
+    <g class="road">
+      <path d="M-8 178C58 142 110 155 154 142C206 127 254 131 329 103" fill="none" stroke="#4D5D68" stroke-width="29"/>
+      <path d="M-8 178C58 142 110 155 154 142C206 127 254 131 329 103" fill="none" stroke="#FFD45A" stroke-width="3" stroke-dasharray="13 12"/>
+      <path d="M-4 161C49 137 102 142 150 131" fill="none" stroke="#F4F0E5" stroke-width="3"/>
+    </g>
+  </symbol>
+  <symbol id="sunny-town-upgrade-1" viewBox="0 0 320 180">
+    <g class="upgrade">
+      <path d="M39 121V78H85V121" fill="#FFE071" stroke="#294454" stroke-width="4"/>
+      <path d="M33 79H91L83 66H43Z" fill="#F05D50" stroke="#294454" stroke-width="4"/>
+      <rect x="49" y="91" width="26" height="17" rx="3" fill="#8ED9E8"/>
+      <path d="M39 121H86" stroke="#294454" stroke-width="5"/>
+    </g>
+  </symbol>
+  <symbol id="sunny-town-upgrade-2" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M112 139Q149 111 187 136" fill="none" stroke="#F4B72B" stroke-width="11"/>
+      <path d="M116 142V123M183 139V120"/><path d="M104 145H193" stroke="#F7F3E8" stroke-width="5"/>
+    </g>
+  </symbol>
+  <symbol id="sunny-town-upgrade-3" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M205 111V69H251V111Z" fill="#F06E52"/>
+      <path d="M198 70L228 47L258 70Z" fill="#FFD45A"/>
+      <rect x="214" y="82" width="12" height="13" fill="#A9E9EF"/><rect x="233" y="82" width="11" height="29" fill="#37B8AA"/>
+    </g>
+  </symbol>
+  <symbol id="sunny-town-upgrade-4" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linecap="round">
+      <path d="M24 130V91"/><circle cx="24" cy="82" r="18" fill="#37A85B"/>
+      <path d="M44 134V105H72" fill="none"/><path d="M48 108L66 131M66 108L48 131"/>
+      <path d="M41 99H75" stroke="#F4B72B" stroke-width="7"/>
+    </g>
+  </symbol>
+  <symbol id="sunny-town-upgrade-5" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linecap="round">
+      <path d="M278 109V61M294 101V69"/>
+      <path d="M278 62H292M294 70H306"/><circle cx="292" cy="62" r="6" fill="#FFF176"/><circle cx="306" cy="70" r="6" fill="#FFF176"/>
+      <path d="M265 112H309" stroke="#F4B72B" stroke-width="6"/>
+    </g>
+  </symbol>
+
+  <symbol id="forest-valley" viewBox="0 0 320 180">
+    <g class="background">
+      <rect width="320" height="180" fill="#C9EEE0"/>
+      <path d="M0 99L53 38L103 99L158 28L228 101L273 48L320 94V126H0Z" fill="#6BA978"/>
+      <path d="M0 108L72 67L123 105L183 58L252 108L320 69V130H0Z" fill="#3E815B"/>
+      <g fill="#275F48"><circle cx="28" cy="78" r="16"/><circle cx="292" cy="83" r="18"/><circle cx="116" cy="76" r="14"/></g>
+    </g>
+    <g class="ground">
+      <path d="M0 111Q77 96 153 113T320 108V180H0Z" fill="#4F9560"/>
+      <path d="M121 109C136 125 130 143 145 180H184C168 145 180 128 161 106Z" fill="#43AFC0"/>
+      <path d="M0 159Q73 140 123 157V180H0ZM184 156Q246 137 320 151V180H184Z" fill="#35794F"/>
+    </g>
+    <g class="road">
+      <path d="M-8 172C52 147 91 138 127 133M177 132C223 125 267 130 329 111" fill="none" stroke="#8B6848" stroke-width="24"/>
+      <path d="M-8 172C52 147 91 138 127 133M177 132C223 125 267 130 329 111" fill="none" stroke="#D5B783" stroke-width="3" stroke-dasharray="10 10"/>
+    </g>
+  </symbol>
+  <symbol id="forest-valley-upgrade-1" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F39" stroke-width="4" stroke-linecap="round">
+      <path d="M112 132H190" stroke="#C98B4E" stroke-width="12"/>
+      <path d="M119 123V143M139 123V143M160 123V143M182 123V143"/><path d="M110 120L190 120"/>
+    </g>
+  </symbol>
+  <symbol id="forest-valley-upgrade-2" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F39" stroke-width="4" stroke-linejoin="round">
+      <path d="M239 113L255 60L273 113M246 87H267M242 101H271" fill="none"/>
+      <rect x="244" y="45" width="29" height="20" fill="#F4B72B"/><path d="M240 46L258 31L277 46Z" fill="#F06E52"/>
+    </g>
+  </symbol>
+  <symbol id="forest-valley-upgrade-3" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F39" stroke-width="4">
+      <rect x="64" y="90" width="40" height="29" rx="4" fill="#44CDBD"/>
+      <path d="M84 90V68M72 68H96" fill="none"/>
+      <path d="M72 99H95M72 108H95" stroke="#F7F3E8" stroke-width="3"/>
+    </g>
+  </symbol>
+  <symbol id="forest-valley-upgrade-4" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F39" stroke-width="4" stroke-linejoin="round">
+      <path d="M19 131L44 94L70 131Z" fill="#F06E52"/><path d="M44 94V131"/><rect x="73" y="119" width="40" height="10" rx="5" fill="#F4F0E5"/>
+      <circle cx="93" cy="124" r="3" fill="#F4B72B" stroke="none"/>
+    </g>
+  </symbol>
+  <symbol id="forest-valley-upgrade-5" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F39" stroke-width="4" stroke-linecap="round">
+      <path d="M287 119V74"/><path d="M287 75H302"/><circle cx="303" cy="75" r="7" fill="#FFF176"/>
+      <circle cx="282" cy="52" r="3" fill="#FFF176" stroke="none"/><circle cx="305" cy="45" r="3" fill="#FFF176" stroke="none"/><circle cx="294" cy="34" r="2" fill="#FFF176" stroke="none"/>
+    </g>
+  </symbol>
+
+  <symbol id="harbor-island" viewBox="0 0 320 180">
+    <g class="background">
+      <rect width="320" height="180" fill="#9FDFE8"/>
+      <circle cx="56" cy="35" r="17" fill="#FFD45A"/>
+      <path d="M0 95Q48 77 94 94T186 93T277 94T340 87V180H0Z" fill="#3AAFC1"/>
+      <path d="M0 111Q55 96 109 110T215 109T320 106V180H0Z" fill="#258FA9"/>
+      <path d="M190 83Q218 48 249 82Q276 60 311 85Z" fill="#65AD6A"/>
+      <path d="M120 47L130 55L120 54M145 37L155 45L145 44" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+    </g>
+    <g class="ground">
+      <path d="M0 124H218V180H0Z" fill="#B8C5C9"/>
+      <path d="M0 124H218V135H0Z" fill="#E7ECEB"/>
+      <path d="M215 115L320 102V180H215Z" fill="#D8B66B"/>
+      <path d="M228 126L320 114M227 143L320 132" stroke="#EFD38E" stroke-width="4"/>
+    </g>
+    <g class="road">
+      <path d="M-6 157H221" stroke="#4D5D68" stroke-width="31"/>
+      <path d="M0 157H220" stroke="#FFD45A" stroke-width="3" stroke-dasharray="15 12"/>
+      <path d="M210 122V179" stroke="#6A7D85" stroke-width="8"/>
+    </g>
+  </symbol>
+  <symbol id="harbor-island-upgrade-1" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M37 124V56H104V124" fill="none" stroke="#F4B72B" stroke-width="8"/>
+      <path d="M40 59H123M102 59V99" fill="none"/><path d="M94 99H111L108 112H97Z" fill="#F06E52"/>
+      <path d="M50 59L91 122M91 59L50 122" fill="none" stroke-width="3"/>
+    </g>
+  </symbol>
+  <symbol id="harbor-island-upgrade-2" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M124 124V83H185V124Z" fill="#F06E52"/><path d="M116 84L154 64L193 84Z" fill="#F4B72B"/>
+      <path d="M136 97H150V124M159 96H176V108H159Z" fill="#A9E9EF"/>
+    </g>
+  </symbol>
+  <symbol id="harbor-island-upgrade-3" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M279 115L286 59H304L310 111Z" fill="#F7F3E8"/><path d="M284 78H307M286 61L295 45L304 61Z" fill="#F06E52"/>
+      <path d="M295 45V34"/><circle cx="295" cy="30" r="6" fill="#FFF176"/>
+    </g>
+  </symbol>
+  <symbol id="harbor-island-upgrade-4" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4">
+      <rect x="20" y="100" width="39" height="23" fill="#397FD6"/><rect x="58" y="98" width="42" height="25" fill="#F06E52"/>
+      <path d="M39 100V123M79 98V123"/><path d="M25 109H54M64 107H95" stroke="#F7F3E8" stroke-width="3"/>
+    </g>
+  </symbol>
+  <symbol id="harbor-island-upgrade-5" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M232 140L249 116H296L311 140Z" fill="#F7F3E8"/><path d="M253 116L262 97H284L293 116Z" fill="#37B8AA"/>
+      <path d="M263 104H282" stroke="#A9E9EF" stroke-width="6"/><path d="M244 140Q273 153 306 140" fill="none" stroke="#FFFFFF"/>
+    </g>
+  </symbol>
+
+  <symbol id="undersea-city" viewBox="0 0 320 180">
+    <g class="background">
+      <rect width="320" height="180" fill="#61C7CE"/>
+      <path d="M0 0H320V42Q252 57 190 37T0 48Z" fill="#8DE3DE"/>
+      <path d="M0 67Q61 53 118 69T233 67T320 64" fill="none" stroke="#A9F0E8" stroke-width="5" opacity=".65"/>
+      <g fill="#D2F5E9"><circle cx="40" cy="55" r="5"/><circle cx="52" cy="40" r="3"/><circle cx="280" cy="76" r="6"/><circle cx="292" cy="59" r="3"/></g>
+      <path d="M218 69Q236 54 252 69M255 52Q271 38 288 52" fill="none" stroke="#245F76" stroke-width="4"/>
+    </g>
+    <g class="ground">
+      <path d="M0 119Q45 99 91 118T185 115T270 114T320 109V180H0Z" fill="#D4BD79"/>
+      <path d="M0 151Q55 137 107 153T207 149T320 145V180H0Z" fill="#B5965E"/>
+      <path d="M23 122Q31 99 39 122M277 121Q285 92 294 119" fill="none" stroke="#2C8B76" stroke-width="7"/>
+    </g>
+    <g class="road">
+      <path d="M-7 168C66 136 127 144 174 135C225 125 270 133 328 115" fill="none" stroke="#405E68" stroke-width="27"/>
+      <path d="M-7 168C66 136 127 144 174 135C225 125 270 133 328 115" fill="none" stroke="#7DE7DF" stroke-width="3" stroke-dasharray="10 10"/>
+    </g>
+  </symbol>
+  <symbol id="undersea-city-upgrade-1" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#214756" stroke-width="4" stroke-linejoin="round">
+      <path d="M39 124Q43 78 83 78Q123 78 127 124Z" fill="#D7F5EB"/>
+      <path d="M52 112Q57 89 82 89Q108 89 114 112Z" fill="#83D9DF"/><path d="M83 79V124"/>
+    </g>
+  </symbol>
+  <symbol id="undersea-city-upgrade-2" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#214756" stroke-width="4">
+      <rect x="201" y="76" width="49" height="45" rx="7" fill="#F06E52"/><path d="M211 88H240M211 99H240" stroke="#FFD1B7" stroke-width="5"/>
+      <path d="M225 76V53M214 53H237" fill="none"/><circle cx="225" cy="44" r="8" fill="#F4B72B"/>
+    </g>
+  </symbol>
+  <symbol id="undersea-city-upgrade-3" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#214756" stroke-width="4" stroke-linejoin="round">
+      <path d="M136 129V83H188V129" fill="none" stroke="#F4B72B" stroke-width="8"/><path d="M140 87Q161 106 184 87M140 108Q161 124 184 108" fill="none"/>
+      <path d="M149 72Q160 62 171 72" fill="none" stroke="#245F76"/>
+    </g>
+  </symbol>
+  <symbol id="undersea-city-upgrade-4" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#214756" stroke-width="4" stroke-linejoin="round">
+      <path d="M262 116Q265 80 290 80Q315 80 318 116Z" fill="#A9E9EF"/><path d="M268 104H312"/><path d="M279 80L290 62L301 80Z" fill="#F4B72B"/>
+      <path d="M290 62V48"/><circle cx="290" cy="42" r="5" fill="#FFF176"/>
+    </g>
+  </symbol>
+  <symbol id="undersea-city-upgrade-5" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#214756" stroke-width="4" stroke-linecap="round">
+      <path d="M18 132V91M104 118V78M189 111V70M258 107V66"/>
+      <circle cx="18" cy="87" r="7" fill="#FFF176"/><circle cx="104" cy="74" r="7" fill="#FFF176"/><circle cx="189" cy="66" r="7" fill="#FFF176"/><circle cx="258" cy="62" r="7" fill="#FFF176"/>
+    </g>
+  </symbol>
+
+  <symbol id="snow-airport" viewBox="0 0 320 180">
+    <g class="background">
+      <rect width="320" height="180" fill="#CBE9F3"/>
+      <path d="M0 105L53 48L87 82L131 31L194 91L232 50L278 91L320 59V128H0Z" fill="#91B8D1"/>
+      <path d="M26 91L53 48L68 67M101 63L131 31L158 59M213 71L232 50L252 71" fill="#F7FBFA"/>
+      <g fill="#FFFFFF"><circle cx="38" cy="36" r="3"/><circle cx="92" cy="22" r="3"/><circle cx="211" cy="28" r="4"/><circle cx="284" cy="39" r="3"/></g>
+    </g>
+    <g class="ground">
+      <path d="M0 102Q77 93 149 108T320 102V180H0Z" fill="#F4F8F6"/>
+      <path d="M0 145Q56 132 103 145T207 141T320 139V180H0Z" fill="#DDECF0"/>
+      <path d="M27 121L48 111M270 118L294 108" stroke="#FFFFFF" stroke-width="8"/>
+    </g>
+    <g class="road">
+      <path d="M-8 168L329 115" stroke="#506474" stroke-width="36"/>
+      <path d="M-8 168L329 115" stroke="#FFFFFF" stroke-width="4" stroke-dasharray="24 16"/>
+      <path d="M-2 150L323 99M3 180L330 129" stroke="#92A5B0" stroke-width="3"/>
+    </g>
+  </symbol>
+  <symbol id="snow-airport-upgrade-1" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M42 121V71H113V121Z" fill="#397FD6"/><path d="M33 72L77 48L121 72Z" fill="#F7F3E8"/>
+      <path d="M57 121V87H99V121Z" fill="#8ED9E8"/><path d="M65 95H91" stroke="#FFFFFF"/>
+    </g>
+  </symbol>
+  <symbol id="snow-airport-upgrade-2" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linecap="round">
+      <path d="M130 132V83M178 124V76M229 117V68M279 110V61"/>
+      <circle cx="130" cy="80" r="6" fill="#F4B72B"/><circle cx="178" cy="73" r="6" fill="#F4B72B"/><circle cx="229" cy="65" r="6" fill="#F4B72B"/><circle cx="279" cy="58" r="6" fill="#F4B72B"/>
+    </g>
+  </symbol>
+  <symbol id="snow-airport-upgrade-3" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M239 98L249 45H271L280 91Z" fill="#F7F3E8"/><rect x="246" y="57" width="27" height="17" fill="#8ED9E8"/>
+      <path d="M260 45V31M251 31H269" fill="none"/>
+    </g>
+  </symbol>
+  <symbol id="snow-airport-upgrade-4" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M298 99V46"/><path d="M298 48L320 56L298 65Z" fill="#F06E52"/><path d="M292 100H306"/>
+    </g>
+  </symbol>
+  <symbol id="snow-airport-upgrade-5" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#294454" stroke-width="4" stroke-linejoin="round">
+      <path d="M118 88L164 75L197 38L210 42L189 75L239 85L244 96L184 91L163 112L151 110L157 89L122 96Z" fill="#F06E52"/>
+      <path d="M175 76L189 80M199 46L207 49" stroke="#FFFFFF" stroke-width="4"/>
+    </g>
+  </symbol>
+
+  <symbol id="future-shanghai" viewBox="0 0 320 180">
+    <g class="background">
+      <rect width="320" height="180" fill="#F3C992"/>
+      <circle cx="269" cy="39" r="20" fill="#F06E52"/>
+      <path d="M0 109V78H26V101H45V58H73V98H91V70H116V104H137V49H160V96H184V66H207V105H231V75H257V105H279V61H306V105H320V130H0Z" fill="#576F7E"/>
+      <path d="M49 67H67M142 58H155M188 75H203M284 70H300" stroke="#8ED9E8" stroke-width="5"/>
+    </g>
+    <g class="ground">
+      <path d="M0 111Q70 103 136 113T267 111T320 108V180H0Z" fill="#4BA4AA"/>
+      <path d="M0 137Q62 125 124 138T246 136T320 132V180H0Z" fill="#287F91"/>
+      <path d="M0 151Q75 138 145 151T277 146T320 145V180H0Z" fill="#3A9A74"/>
+    </g>
+    <g class="road">
+      <path d="M-5 177C59 150 104 159 153 144C206 128 257 136 327 112" fill="none" stroke="#3D4E5C" stroke-width="29"/>
+      <path d="M-5 177C59 150 104 159 153 144C206 128 257 136 327 112" fill="none" stroke="#55D8CC" stroke-width="3" stroke-dasharray="14 10"/>
+      <path d="M4 145C67 121 119 129 165 116C218 101 261 107 318 90" fill="none" stroke="#E8F0EC" stroke-width="5"/>
+    </g>
+  </symbol>
+  <symbol id="future-shanghai-upgrade-1" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F50" stroke-width="4" stroke-linejoin="round">
+      <path d="M28 126V89H83V126Z" fill="#37B8AA"/><path d="M21 90L55 70L90 90Z" fill="#F4B72B"/>
+      <path d="M38 100H74M42 112H70" stroke="#D7F5EB" stroke-width="5"/>
+      <circle cx="31" cy="133" r="7" fill="#F06E52"/><circle cx="80" cy="133" r="7" fill="#F06E52"/>
+    </g>
+  </symbol>
+  <symbol id="future-shanghai-upgrade-2" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F50" stroke-width="4" stroke-linejoin="round">
+      <path d="M205 113L215 35H253L263 112Z" fill="#8ED9E8"/><path d="M220 45L248 45M218 61H250M216 78H254M214 95H258" stroke="#F7F3E8"/>
+      <path d="M234 35V23"/><circle cx="234" cy="18" r="5" fill="#F4B72B"/>
+    </g>
+  </symbol>
+  <symbol id="future-shanghai-upgrade-3" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F50" stroke-width="4" stroke-linecap="round">
+      <path d="M103 117V78H167V117" fill="none" stroke="#F7F3E8" stroke-width="8"/>
+      <path d="M107 80Q134 57 163 80" fill="#65C56A"/><circle cx="121" cy="72" r="8" fill="#37A85B"/><circle cx="146" cy="68" r="10" fill="#37A85B"/>
+    </g>
+  </symbol>
+  <symbol id="future-shanghai-upgrade-4" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F50" stroke-width="4" stroke-linecap="round">
+      <path d="M159 139Q192 101 231 128" fill="none" stroke="#F06E52" stroke-width="10"/>
+      <path d="M160 139Q193 116 232 128" fill="none" stroke="#F4B72B" stroke-width="4"/>
+      <path d="M168 132V116M224 126V109"/>
+    </g>
+  </symbol>
+  <symbol id="future-shanghai-upgrade-5" viewBox="0 0 320 180">
+    <g class="upgrade" stroke="#263F50" stroke-width="4" stroke-linejoin="round">
+      <path d="M277 111L288 48H297L306 110Z" fill="#D7F5EB"/>
+      <circle cx="293" cy="54" r="13" fill="#F06E52"/><circle cx="293" cy="82" r="8" fill="#F06E52"/>
+      <path d="M293 41V24M284 24H302M282 66H304M284 93H302"/>
+      <circle cx="293" cy="18" r="5" fill="#F4B72B"/>
+    </g>
+  </symbol>
+</svg>
