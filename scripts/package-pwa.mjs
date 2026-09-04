@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFile, mkdir, rm, stat } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { PWA_ASSETS } from '../pwa-assets.js';
@@ -40,11 +40,12 @@ export async function collectPackageEntries(projectRoot, assets = PWA_ASSETS) {
 
     let sourceStats;
     try {
-      sourceStats = await stat(sourcePath);
+      sourceStats = await lstat(sourcePath);
     } catch (error) {
       if (error.code === 'ENOENT') throw new Error(`PWA 资源缺失：${entry}`);
       throw error;
     }
+    if (sourceStats.isSymbolicLink()) throw new Error(`PWA 资源不能是符号链接：${entry}`);
     if (sourceStats.isDirectory()) throw new Error(`PWA 资源不能是目录：${entry}`);
     entries.push({ relativePath, sourcePath });
   }

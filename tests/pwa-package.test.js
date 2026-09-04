@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -67,6 +67,22 @@ test('collectPackageEntries rejects unsafe, duplicate, missing, and directory as
   await rm(join(fixtureRoot, 'src/app.js'));
   await mkdir(join(fixtureRoot, 'src/app.js'));
   await assert.rejects(() => collectPackageEntries(fixtureRoot, ['./src/app.js']), /目录/);
+});
+
+test('collectPackageEntries rejects a file symlink that targets outside the project', async (t) => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'fleet-pwa-project-'));
+  const externalRoot = await mkdtemp(join(tmpdir(), 'fleet-pwa-external-'));
+  t.after(() => rm(fixtureRoot, { recursive: true, force: true }));
+  t.after(() => rm(externalRoot, { recursive: true, force: true }));
+  await writeAllowedFiles(fixtureRoot);
+
+  const externalFile = join(externalRoot, 'external.js');
+  const linkedAsset = join(fixtureRoot, 'src/app.js');
+  await writeFile(externalFile, 'external asset');
+  await rm(linkedAsset);
+  await symlink(externalFile, linkedAsset);
+
+  await assert.rejects(() => collectPackageEntries(fixtureRoot), /符号链接/);
 });
 
 test('package command creates a ZIP with one stable top-level directory', () => {
