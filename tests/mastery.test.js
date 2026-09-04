@@ -61,6 +61,26 @@ test('multiple correct interactions in one completion advance review only once',
   assert.equal(duplicate.nextReviewLessonCount, first.nextReviewLessonCount);
 });
 
+test('replaying one lesson cannot advance spaced review scheduling', () => {
+  let record = createSkillRecord();
+  for (let replay = 1; replay <= 5; replay += 1) {
+    record = recordSkillAttempt(record, {
+      correct: true,
+      assistance: 0,
+      lessonId: 'lesson-001',
+      eventId: `lesson-001:${replay}`,
+      lessonCount: replay,
+    }, 1000 + replay);
+  }
+
+  assert.equal(record.independentCorrect, 1);
+  assert.deepEqual(record.independentLessonIds, ['lesson-001']);
+  assert.equal(record.successfulEventIds.length, 1);
+  assert.deepEqual(record.successfulDueReviewEventIds, []);
+  assert.equal(record.nextReviewAt, 1001 + DAY);
+  assert.equal(record.nextReviewLessonCount, 2);
+});
+
 test('lesson-count fallback makes a review due and records its successful evidence', () => {
   let record = recordSkillAttempt(createSkillRecord(), {
     correct: true, assistance: 0, lessonId: 'lesson-001', eventId: 'lesson-001:1', lessonCount: 4,

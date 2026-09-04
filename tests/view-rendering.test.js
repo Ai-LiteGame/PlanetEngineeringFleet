@@ -31,7 +31,8 @@ test('map exposes one primary continue action and all region landmarks', () => {
 
   assert.equal((html.match(/data-action="continue-course"/g) ?? []).length, 1);
   assert.equal((html.match(/data-action="open-garage"/g) ?? []).length, 1);
-  assert.doesNotMatch(html, /data-action="open-lesson"/, 'future phases must not bypass progression');
+  assert.match(html, /data-action="open-lesson"[^>]*data-lesson="lesson-001"/);
+  assert.doesNotMatch(html, /data-lesson="lesson-002"|data-lesson="lesson-003"/, 'future phases must not bypass progression');
   assert.match(html, /data-current-lesson="lesson-001"/);
   assert.match(html, /assets\/construction-fleet\.svg#excavator/);
   for (const region of REGIONS) {
@@ -80,6 +81,36 @@ test('map renders all progression states and exact phase replay controls', () =>
     assert.match(html, new RegExp(`data-action="open-lesson"[^>]*data-lesson="${lessonId}"`));
   }
   assert.match(html, /data-action="start-placement"/);
+});
+
+test('map renders only the selected reached project phases that are available', () => {
+  const base = {
+    regions: REGIONS,
+    currentRegionId: 'sunny-town',
+    currentProjectId: 'project-004',
+    currentLessonId: 'lesson-010',
+    completedProjectIds: [],
+  };
+  const projectStates = [
+    { projectId: 'project-001', state: 'learnable', availableLessonIds: ['lesson-001'] },
+    { projectId: 'project-002', state: 'reviewDue', availableLessonIds: ['lesson-004', 'lesson-005', 'lesson-006'] },
+    { projectId: 'project-003', state: 'inProgress', availableLessonIds: ['lesson-007', 'lesson-008'] },
+    { projectId: 'project-004', state: 'learnable', availableLessonIds: ['lesson-010'] },
+  ];
+
+  const learnableHtml = renderMap({ ...base, projectStates, selectedProjectId: 'project-001' });
+  assert.match(learnableHtml, /data-lesson="lesson-001"/);
+  assert.doesNotMatch(learnableHtml, /data-lesson="lesson-002"|data-lesson="lesson-003"/);
+
+  const reviewDueHtml = renderMap({ ...base, projectStates, selectedProjectId: 'project-002' });
+  for (const lessonId of ['lesson-004', 'lesson-005', 'lesson-006']) {
+    assert.match(reviewDueHtml, new RegExp(`data-lesson="${lessonId}"`));
+  }
+
+  const inProgressHtml = renderMap({ ...base, projectStates, selectedProjectId: 'project-003' });
+  assert.match(inProgressHtml, /data-lesson="lesson-007"/);
+  assert.match(inProgressHtml, /data-lesson="lesson-008"/);
+  assert.doesNotMatch(inProgressHtml, /data-lesson="lesson-009"/);
 });
 
 test('placement view is encouraging, answerable and explicit that it does not record', () => {

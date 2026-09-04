@@ -43,6 +43,10 @@ function isReviewDue(record, now, lessonCount) {
   return dateDue || lessonDue;
 }
 
+function isLessonEvent(eventId, lessonId) {
+  return eventId === lessonId || eventId.startsWith(`${lessonId}:`);
+}
+
 export function skillStatus(record, now, lessonCount = null) {
   if (record.exposures === 0) return 'unseen';
   if (isReviewDue(record, now, lessonCount)) return 'reviewDue';
@@ -57,7 +61,7 @@ export function recordSkillAttempt(record, attempt, now) {
     : attempt.lessonId;
   const successfulEventIds = [...(record.successfulEventIds ?? [])];
   const successfulDueReviewEventIds = [...(record.successfulDueReviewEventIds ?? [])];
-  const isNewSuccessfulEvent = !successfulEventIds.includes(eventId);
+  const isNewSuccessfulEvent = !successfulEventIds.some((id) => isLessonEvent(id, attempt.lessonId));
   const wasDue = isReviewDue(record, now, lessonCount);
   const next = {
     ...record,

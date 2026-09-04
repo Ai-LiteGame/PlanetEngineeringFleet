@@ -145,6 +145,75 @@ test('every learner-facing sentence pattern is deterministically instantiated wi
   }
 });
 
+test('mixed tasks instantiate patterns with grammatical action phrases across seeds', () => {
+  const grammaticalBareActions = new Set([
+    'go', 'come', 'run', 'walk', 'jump', 'sit', 'stand', 'sleep', 'play', 'stop', 'turn', 'wait',
+  ]);
+  const engineeringNouns = ENGLISH_WORDS
+    .filter((word) => word.category === 'engineering')
+    .map((word) => word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const nounAsVerb = new RegExp(`\\b(?:can|you|us|we) (?:${engineeringNouns.join('|')})(?:[.!?]|$)`, 'i');
+  const placeholderFailures = [];
+  const grammarFailures = [];
+  let balancedMixedCount = 0;
+
+  for (const lesson of LESSONS) {
+    const balanced = progressWithBalancedHistory(lesson);
+    if (!balanced) continue;
+    for (const seed of [0, 1, 7, 19, 41]) {
+      const interactions = buildLessonInteractions(lesson, balanced, seed, 1000);
+      const mixed = interactions.at(-1);
+      const text = learnerText(mixed);
+      balancedMixedCount += 1;
+      if (/\{[^}]+\}/.test(text) && placeholderFailures.length < 10) placeholderFailures.push(mixed.id);
+      if (nounAsVerb.test(text) && grammarFailures.length < 10) grammarFailures.push(mixed.id);
+
+      for (const interaction of interactions) {
+        for (const value of interaction.choices.flatMap((choice) => choice.slotValues ?? [])) {
+          if (value.slot !== 'action') continue;
+          if (!value.word.includes(' ') && !grammaticalBareActions.has(value.word) && grammarFailures.length < 10) {
+            grammarFailures.push(`${interaction.id}:${value.word}`);
+          }
+        }
+      }
+    }
+  }
+
+  const knownSkillIds = new Set([
+    ...CHINESE_ITEMS,
+    ...ENGLISH_WORDS,
+    ...ENGLISH_PATTERNS,
+    ...MATH_SKILLS,
+  ].map((item) => item.id));
+  for (const lesson of LESSONS.filter((item) => item.newEnglishPatternIds.length > 0)) {
+    const earlierIds = [...new Set(LESSONS
+      .filter((item) => item.ordinal < lesson.ordinal)
+      .flatMap((item) => [
+        ...item.newChineseIds,
+        ...item.newEnglishWordIds,
+        ...item.newEnglishPatternIds,
+        item.mathSkillId,
+      ]))].filter((id) => knownSkillIds.has(id));
+    const fullHistory = createProgressV2({
+      skills: Object.fromEntries(earlierIds.map((id) => [id, {
+        ...createSkillRecord(), exposures: 1, status: 'practicing',
+      }])),
+    });
+    for (const seed of [0, 1, 7, 19, 41]) {
+      const mixed = buildLessonInteractions(lesson, fullHistory, seed, 1000).at(-1);
+      if (/\{[^}]+\}/.test(learnerText(mixed)) && placeholderFailures.length < 10) {
+        placeholderFailures.push(mixed.id);
+      }
+    }
+  }
+
+  assert.equal(balancedMixedCount > 0, true);
+  assert.deepEqual({ placeholderFailures, grammarFailures }, {
+    placeholderFailures: [],
+    grammarFailures: [],
+  });
+});
+
 test('visual math questions encode quantities and values children must interpret', () => {
   const requiredDomains = ['number-sense', 'measurement', 'clock', 'money'];
   for (const domain of requiredDomains) {
@@ -172,9 +241,14 @@ test('visual math questions encode quantities and values children must interpret
           assert.equal(correct.length, item.problem.ask === 'longest' ? Math.max(...lengths) : Math.min(...lengths), item.id);
           assert.equal(item.choices.every((choice) => choice.visual.length > 0), true, item.id);
         } else if (domain === 'clock') {
-          assert.deepEqual(correct.time, item.problem.time, item.id);
-          assert.equal(item.problem.time.minute % (tier === 1 ? 60 : tier === 2 ? 30 : 15), 0, item.id);
-          assert.equal(item.choices.every((choice) => /钟面/.test(choice.visual)), true, item.id);
+          if (tier === 1) {
+            assert.deepEqual(correct.time, item.problem.time, item.id);
+            assert.equal(item.problem.time.minute, 0, item.id);
+            assert.equal(item.choices.every((choice) => /钟面/.test(choice.visual)), true, item.id);
+          } else {
+            assert.equal(correct.elapsedMinutes, item.problem.elapsedMinutes, item.id);
+            assert.match(item.visualPrompt, /开始[\s\S]*结束/, item.id);
+          }
         } else {
           assert.equal(correct.coins.reduce((sum, coin) => sum + coin, 0), item.problem.price, item.id);
           assert.equal(item.choices.every((choice) => choice.visual.includes('元')), true, item.id);
@@ -272,8 +346,39 @@ test('language distractors are distinct from the answer and stay in the lesson t
     const choiceIds = interaction.choices.map((choice) => choice.id);
     assert.equal(new Set(choiceIds).size, choiceIds.length);
     assert.equal(choiceIds.filter((id) => id === interaction.answerId).length, 1);
-    for (const id of choiceIds) assert.equal(languageTierById.get(id), lesson.tier);
+    for (const item of interaction.choices) {
+      for (const id of item.skillIds ?? [item.id]) assert.equal(languageTierById.get(id), lesson.tier);
+    }
   }
+});
+
+test('English group choices use unique stable IDs and sample distractors without replacement', () => {
+  let groupInteractionCount = 0;
+  for (const lesson of LESSONS) {
+    for (const progress of [createProgressV2(), progressWithBalancedHistory(lesson)].filter(Boolean)) {
+      for (const seed of [0, 3, 11, 29]) {
+        const interactions = buildLessonInteractions(lesson, progress, seed, 1000);
+        for (const interaction of interactions.filter((item) => item.kind === 'english-group-context')) {
+          groupInteractionCount += 1;
+          const choiceIds = interaction.choices.map((choice) => choice.id);
+          assert.equal(new Set(choiceIds).size, choiceIds.length, interaction.id);
+          for (const item of interaction.choices) {
+            assert.equal(item.id, `english-group:${item.skillIds.join('+')}`, interaction.id);
+          }
+          const distractorSkillIds = interaction.choices
+            .filter((choice) => choice.id !== interaction.answerId)
+            .flatMap((choice) => choice.skillIds);
+          assert.equal(new Set(distractorSkillIds).size, distractorSkillIds.length, interaction.id);
+          assert.equal(
+            distractorSkillIds.every((id) => !interaction.skillIds.includes(id)),
+            true,
+            interaction.id,
+          );
+        }
+      }
+    }
+  }
+  assert.equal(groupInteractionCount > 0, true);
 });
 
 test('English image choices use unique pictograms rather than duplicated translations', () => {
@@ -338,12 +443,44 @@ test('clock choices stay on the twelve-hour dial', () => {
       const interactions = buildLessonInteractions(lesson, createProgressV2(), seed, 1000);
       for (const interaction of interactions.filter((item) => item.kind === 'math-clock')) {
         clockInteractionCount += 1;
-        const values = interaction.choices.map((item) => item.time.hour);
+        const values = interaction.problem.type === 'read-clock'
+          ? interaction.choices.map((item) => item.time.hour)
+          : [interaction.problem.start.hour, interaction.problem.end.hour];
         assert.equal(values.every((value) => value >= 1 && value <= 12), true, interaction.id);
       }
     }
   }
   assert.equal(clockInteractionCount > 0, true);
+});
+
+test('higher-tier clock tasks use configured elapsed-time ranges and dial visuals', () => {
+  for (const tier of [2, 3]) {
+    const skill = MATH_SKILLS.find((item) => item.domain === 'clock' && item.tier === tier);
+    const lesson = LESSONS.find((item) => item.mathSkillId === skill.id);
+    const observedDurations = new Set();
+
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const interactions = buildLessonInteractions(lesson, createProgressV2(), seed, 1000)
+        .filter((item) => item.kind === 'math-clock');
+      for (const interaction of interactions) {
+        assert.equal(interaction.problem.type, 'elapsed-time', interaction.id);
+        assert.equal(interaction.problem.elapsedMinutes >= skill.min, true, interaction.id);
+        assert.equal(interaction.problem.elapsedMinutes <= skill.max, true, interaction.id);
+        assert.equal(
+          interaction.problem.end.totalMinutes - interaction.problem.start.totalMinutes,
+          interaction.problem.elapsedMinutes,
+          interaction.id,
+        );
+        assert.match(interaction.visualPrompt, /12[\s\S]*9[\s\S]*3[\s\S]*6/, interaction.id);
+        assert.doesNotMatch(interaction.visualPrompt, /短针|长针/, interaction.id);
+        const answer = interaction.choices.find((choice) => choice.id === interaction.answerId);
+        assert.equal(answer.elapsedMinutes, interaction.problem.elapsedMinutes, interaction.id);
+        observedDurations.add(interaction.problem.elapsedMinutes);
+      }
+    }
+
+    assert.equal(observedDurations.has(skill.max), true, `${skill.id} must exercise max ${skill.max}`);
+  }
 });
 
 test('a review lesson with empty new arrays uses prior project content', () => {

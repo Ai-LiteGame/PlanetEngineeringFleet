@@ -455,7 +455,7 @@ const SLOT_CATEGORIES = Object.freeze({
   color: ['color'],
   animal: ['animal'],
   food: ['food'],
-  action: ['action', 'engineering'],
+  action: ['action'],
   place: ['place', 'transport'],
   number: ['number'],
   vehicle: ['vehicle'],
@@ -463,10 +463,38 @@ const SLOT_CATEGORIES = Object.freeze({
   tool: ['tool', 'engineering'],
   month: ['time', 'season'],
   season: ['season'],
-  name: ['nature'],
+});
+
+const NAME_SLOT_VALUES = Object.freeze([
+  { id: 'slot-name-ming', word: 'Ming', meaning: '小明', tier: 1 },
+  { id: 'slot-name-lily', word: 'Lily', meaning: '莉莉', tier: 1 },
+  { id: 'slot-name-leo', word: 'Leo', meaning: '利奥', tier: 1 },
+]);
+
+const ACTION_SLOT_PHRASES = Object.freeze({
+  look: ['look around', '看看四周'],
+  see: ['see the sign', '看见标志'],
+  eat: ['eat lunch', '吃午饭'],
+  drink: ['drink water', '喝水'],
+  help: ['help the team', '帮助工程队'],
+  open: ['open the gate', '打开大门'],
+  close: ['close the gate', '关上大门'],
+  make: ['make a sign', '制作标志'],
+  draw: ['draw a line', '画一条线'],
+  find: ['find the tools', '找到工具'],
+  carry: ['carry the cones', '搬运路锥'],
+  wash: ['wash the truck', '清洗卡车'],
+  choose: ['choose a tool', '选择工具'],
+  check: ['check the plan', '检查计划'],
+  follow: ['follow the map', '按照地图走'],
+  ready: ['get ready', '准备好'],
+  can: ['start the job', '开始任务'],
+  want: ['keep going', '继续前进'],
+  need: ['ask for help', '请求帮助'],
 });
 
 function slotVocabulary(slot, tier) {
+  if (slot === 'name') return NAME_SLOT_VALUES;
   const categories = SLOT_CATEGORIES[slot] ?? [];
   const exactTier = ENGLISH_WORDS.filter((word) => (
     word.tier === tier && categories.includes(word.category)
@@ -479,7 +507,14 @@ function instantiatePattern(item, random) {
   const slotValues = item.slots.map((slot) => {
     const candidates = slotVocabulary(slot, item.tier);
     const word = candidates[randomInteger(random, 0, candidates.length - 1)];
-    return { slot, wordId: word.id, word: word.word, meaning: word.meaning, tier: word.tier };
+    const phrase = slot === 'action' ? ACTION_SLOT_PHRASES[word.word] : null;
+    return {
+      slot,
+      wordId: word.id,
+      word: phrase?.[0] ?? word.word,
+      meaning: phrase?.[1] ?? word.meaning,
+      tier: word.tier,
+    };
   });
   let text = item.text;
   let meaning = item.meaning;
@@ -521,17 +556,21 @@ function englishGroupContext(items, random) {
   const resolvedItems = items.map((item) => (
     englishPatternById.has(item.id) ? instantiatePattern(item, random) : item
   ));
-  const poolFor = (item) => {
+  const usedIds = new Set(items.map((item) => item.id));
+  const takeAlternative = (item) => {
     const source = englishPatternById.has(item.id) ? ENGLISH_PATTERNS : ENGLISH_WORDS;
-    return shuffled(source.filter((candidate) => candidate.tier === item.tier && candidate.id !== item.id), random)[0];
-  };
-  const alternatives = Array.from({ length: 2 }, () => items.map((item) => {
-    const candidate = poolFor(item);
+    const candidate = shuffled(source.filter((entry) => (
+      entry.tier === item.tier && !usedIds.has(entry.id)
+    )), random)[0];
+    if (!candidate) throw new TypeError('English group needs unique same-tier alternatives');
+    usedIds.add(candidate.id);
     return englishPatternById.has(candidate.id) ? instantiatePattern(candidate, random) : candidate;
-  }));
+  };
+  const alternatives = Array.from({ length: 2 }, () => items.map(takeAlternative));
   const groups = [resolvedItems, ...alternatives];
+  const groupId = (group) => `english-group:${group.map((item) => item.id).join('+')}`;
   const choices = shuffled(groups.map((group) => semanticChoice({
-    id: group[0].id,
+    id: groupId(group),
     label: group.map((item) => item.meaning).join('；'),
     visual: group.map((item) => item.meaning).join('\n'),
   }, group.map((item) => item.id))), random);
@@ -542,7 +581,7 @@ function englishGroupContext(items, random) {
     prompt: '听完整的工程对话，选择每一句对应的意思。',
     speech: { text: resolvedItems.map((item) => item.word ?? item.text).join('. '), lang: 'en-US' },
     choices,
-    answerId: items[0].id,
+    answerId: groupId(resolvedItems),
     success: resolvedItems.map((item) => `${item.word ?? item.text}，${item.meaning}`).join(' '),
     hint: resolvedItems.map((item) => item.meaning).join('；'),
     action: 'signal',
@@ -848,12 +887,52 @@ function measurementQuestion(skill, random) {
 }
 
 function clockQuestion(skill, random) {
-  const hour = randomInteger(random, 1, 12);
-  const minuteStep = skill.tier === 1 ? 60 : skill.tier === 2 ? 30 : 15;
-  const minutes = skill.tier === 1 ? [0] : skill.tier === 2 ? [0, 30] : [0, 15, 30, 45];
-  const minute = minutes[randomInteger(random, 0, minutes.length - 1)];
+  const directionAt = (position) => ['↑', '↗', '↗', '→', '↘', '↘', '↓', '↙', '↙', '←', '↖', '↖'][position % 12];
+  const timeFromTotal = (totalMinutes) => ({
+    hour: Math.floor(totalMinutes / 60) % 12 || 12,
+    minute: totalMinutes % 60,
+    totalMinutes,
+  });
+  const clockVisual = (time) => {
+    const minuteHand = directionAt(Math.round(time.minute / 5));
+    const hourHand = directionAt(Math.round(((time.hour % 12) + (time.minute / 60))));
+    return `钟面\n    12\n9  ${hourHand}●${minuteHand}  3\n     6`;
+  };
+
+  if (skill.tier > 1) {
+    const durations = skill.tier === 2 ? [10, 20, 30] : [15, 30, 60];
+    const elapsedMinutes = durations[randomInteger(random, 0, durations.length - 1)];
+    const startHour = randomInteger(random, 7, 10);
+    const startMinuteOptions = skill.tier === 2 ? [0, 30] : [0, 15, 30, 45];
+    const startMinute = startMinuteOptions[randomInteger(random, 0, startMinuteOptions.length - 1)];
+    const start = timeFromTotal((startHour * 60) + startMinute);
+    const end = timeFromTotal(start.totalMinutes + elapsedMinutes);
+    const choices = shuffled(durations.map((duration) => choice(
+      `elapsed-${duration}`,
+      `${duration} 分钟`,
+      `${'▰'.repeat(Math.ceil(duration / 15))} ${duration}分钟`,
+      { elapsedMinutes: duration },
+    )), random);
+    return interaction({
+      kind: 'math-clock',
+      subject: 'math',
+      skillIds: [skill.id],
+      prompt: '看开始和结束的两个钟面，工程一共进行了多少分钟？',
+      speech: { text: '比较开始和结束的钟面，算一算经过了多少分钟', lang: 'zh-CN' },
+      visualPrompt: `开始\n${clockVisual(start)}\n结束\n${clockVisual(end)}`,
+      problem: { type: 'elapsed-time', start, end, elapsedMinutes },
+      choices,
+      answerId: `elapsed-${elapsedMinutes}`,
+      success: `从开始到结束经过了 ${elapsedMinutes} 分钟。`,
+      hint: '先看长针走了多少格，再看短针有没有经过下一个整点。',
+      action: 'signal',
+    });
+  }
+
+  const hour = randomInteger(random, skill.min, skill.max);
+  const minute = 0;
   const candidates = [{ hour, minute }];
-  for (const offset of [minuteStep, -minuteStep, 60, -60]) {
+  for (const offset of [60, -60, 120, -120]) {
     const total = ((hour % 12) * 60) + minute + offset;
     const normalized = (total + 720) % 720;
     const candidate = { hour: Math.floor(normalized / 60) || 12, minute: normalized % 60 };
@@ -861,17 +940,13 @@ function clockQuestion(skill, random) {
     if (candidates.length === 3) break;
   }
   const timeId = (time) => `time-${time.hour}-${time.minute}`;
-  const clockVisual = (time) => {
-    const minuteMark = time.minute === 0 ? '12' : time.minute === 15 ? '3' : time.minute === 30 ? '6' : '9';
-    return `钟面\n短针→${time.hour}  长针→${minuteMark}`;
-  };
   return interaction({
     kind: 'math-clock',
     subject: 'math',
     skillIds: [skill.id],
     prompt: `任务安排在 ${hour} 点${minute === 0 ? '整' : `${minute} 分`}，选择对应的钟面。`,
     speech: { text: `任务安排在${hour}点${minute === 0 ? '整' : `${minute}分`}，选择对应的钟面`, lang: 'zh-CN' },
-    problem: { type: 'read-clock', time: { hour, minute }, minuteStep },
+    problem: { type: 'read-clock', time: { hour, minute }, minuteStep: 60 },
     choices: shuffled(candidates.map((time, index) => choice(
       timeId(time),
       `${String.fromCharCode(65 + index)}号钟`,
@@ -998,8 +1073,11 @@ function reviewInteractions(skillIds, count, random) {
 function mixedDelivery(chineseItem, englishItem, mathSkill, random) {
   const amount = randomInteger(random, Math.max(1, mathSkill.min), Math.max(1, mathSkill.max));
   const wrongAmount = amount < mathSkill.max ? amount + 1 : amount - 1;
-  const englishLabel = englishItem.word ?? englishItem.text;
-  const englishMeaning = englishItem.meaning;
+  const resolvedEnglish = englishPatternById.has(englishItem.id)
+    ? instantiatePattern(englishItem, random)
+    : englishItem;
+  const englishLabel = resolvedEnglish.word ?? resolvedEnglish.text;
+  const englishMeaning = resolvedEnglish.meaning;
   return interaction({
     kind: 'mixed-delivery',
     subject: 'mixed',

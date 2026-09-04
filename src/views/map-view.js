@@ -41,12 +41,13 @@ function projectNode(project, currentProjectId, state) {
     </span>`;
 }
 
-function phaseReplay(project) {
-  if (!project) return '';
+function phaseReplay(project, availableLessonIds) {
+  if (!project || availableLessonIds.length === 0) return '';
+  const available = new Set(availableLessonIds);
   return `
     <div class="phase-replay" aria-label="选择${escapeHtml(project.title)}的课程阶段">
       <strong>${escapeHtml(project.title)}</strong>
-      ${getLessonsForProject(project.id).map((lesson) => `
+      ${getLessonsForProject(project.id).filter((lesson) => available.has(lesson.id)).map((lesson) => `
         <button class="phase-button" type="button" data-action="open-lesson" data-lesson="${escapeHtml(lesson.id)}">
           ${icon(lesson.phase === 'review' ? 'replay' : 'play')}<span>${escapeHtml(PHASE_LABELS[lesson.phase])}</span>
         </button>`).join('')}
@@ -87,7 +88,7 @@ function regionLandmark(region, currentRegionId, completedProjectIds, currentPro
 export function renderMap(model) {
   const regions = Array.isArray(model?.regions) ? model.regions : [];
   const completedProjectIds = new Set(model?.completedProjectIds ?? []);
-  const suppliedStates = new Map((model?.projectStates ?? []).map((item) => [item.projectId, item.state]));
+  const suppliedStates = new Map((model?.projectStates ?? []).map((item) => [item.projectId, item]));
   const currentProject = getProject(model?.currentProjectId);
   const currentLesson = getLesson(model?.currentLessonId);
   if (!currentProject || !currentLesson || currentProject.regionId !== model?.currentRegionId) {
@@ -104,10 +105,29 @@ export function renderMap(model) {
     [...completedProjectIds],
   );
   const regionProjects = PROJECTS.filter((project) => project.regionId === currentRegion.id);
-  const stateForProject = (project) => suppliedStates.get(project.id)
-    ?? (completedProjectIds.has(project.id) ? 'completed' : project.id === currentProject.id ? 'learnable' : 'locked');
+  const detailsForProject = (project) => {
+    const supplied = suppliedStates.get(project.id);
+    if (supplied) {
+      return {
+        ...supplied,
+        availableLessonIds: Array.isArray(supplied.availableLessonIds)
+          ? supplied.availableLessonIds
+          : supplied.state === 'completed'
+            ? getLessonsForProject(project.id).map((lesson) => lesson.id)
+            : [],
+      };
+    }
+    return {
+      projectId: project.id,
+      state: completedProjectIds.has(project.id) ? 'completed' : project.id === currentProject.id ? 'learnable' : 'locked',
+      availableLessonIds: completedProjectIds.has(project.id)
+        ? getLessonsForProject(project.id).map((lesson) => lesson.id)
+        : project.id === currentProject.id ? [currentLesson.id] : [],
+    };
+  };
+  const stateForProject = (project) => detailsForProject(project).state;
   const selectedProject = getProject(model.selectedProjectId) ?? currentProject;
-  const selectedState = stateForProject(selectedProject);
+  const selectedDetails = detailsForProject(selectedProject);
   const localProjectIndex = regionProjects.findIndex((project) => project.id === currentProject.id) + 1;
   const phase = PHASE_LABELS[currentLesson.phase] ?? '学习';
   const assetsAvailable = model.assetsAvailable !== false;
@@ -154,7 +174,7 @@ export function renderMap(model) {
           <div class="route-line" aria-label="区域项目节点">
             ${regionProjects.map((project) => projectNode(project, currentProject.id, stateForProject(project))).join('')}
           </div>
-          ${selectedState === 'completed' ? phaseReplay(selectedProject) : ''}
+          ${selectedDetails.state === 'locked' ? '' : phaseReplay(selectedProject, selectedDetails.availableLessonIds ?? [])}
           <p class="route-legend"><span><i class="legend-dot complete"></i>已完成</span><span><i class="legend-dot review-due"></i>待复习</span><span><i class="legend-dot in-progress"></i>施工中</span><span><i class="legend-dot current"></i>可学习</span><span><i class="legend-dot locked"></i>未开放</span></p>
         </section>
       </section>

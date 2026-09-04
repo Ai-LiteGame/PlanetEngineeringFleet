@@ -40,6 +40,9 @@ export function buildProjectMapStates(progress = {}, currentLessonId = null, now
   return PROJECTS.map((project) => {
     const lessons = getLessonsForProject(project.id);
     const records = lessons.map((lesson) => progress.lessons?.[lesson.id] ?? {});
+    const reached = project.ordinal <= (currentProject?.ordinal ?? 1);
+    if (!reached) return { projectId: project.id, state: 'locked', availableLessonIds: [] };
+
     const allComplete = records.every((record) => (record.completedCount ?? 0) > 0);
     const anyStarted = records.some((record) => (
       Number.isInteger(record.viewedAt) || (record.completedCount ?? 0) > 0
@@ -53,12 +56,23 @@ export function buildProjectMapStates(progress = {}, currentLessonId = null, now
       || projectSkillIds(project.id).some((id) => (
         progress.skills?.[id] && skillStatus(progress.skills[id], now, lessonCount) === 'reviewDue'
       ));
-    let state = 'locked';
+    let state = 'learnable';
     if (reviewDue) state = 'reviewDue';
     else if (allComplete) state = 'completed';
     else if (anyStarted) state = 'inProgress';
-    else if (project.ordinal <= (currentProject?.ordinal ?? 1)) state = 'learnable';
-    return { projectId: project.id, state };
+
+    const firstIncompleteIndex = records.findIndex((record) => (record.completedCount ?? 0) === 0);
+    const currentPhaseIndex = project.id === currentProject?.id
+      ? lessons.findIndex((lesson) => lesson.id === currentLesson?.id)
+      : -1;
+    const availableThrough = allComplete
+      ? lessons.length - 1
+      : Math.max(firstIncompleteIndex, currentPhaseIndex, 0);
+    return {
+      projectId: project.id,
+      state,
+      availableLessonIds: lessons.slice(0, availableThrough + 1).map((lesson) => lesson.id),
+    };
   });
 }
 

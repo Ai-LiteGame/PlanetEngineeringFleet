@@ -11,6 +11,7 @@ import {
   submitPlacementAnswer,
 } from '../src/progression.js';
 import { createProgressV2 } from '../src/storage.js';
+import { createSkillRecord } from '../src/mastery.js';
 
 function completedLessonRecord(status = 'practiced') {
   return {
@@ -92,6 +93,61 @@ test('project map exposes completed, review-due, in-progress, learnable and lock
   assert.deepEqual(states.slice(0, 5).map((item) => item.state), [
     'completed', 'reviewDue', 'inProgress', 'learnable', 'locked',
   ]);
+});
+
+test('future projects stay route locked when a shared skill is review due', () => {
+  const dueSkill = {
+    ...createSkillRecord(),
+    exposures: 1,
+    nextReviewAt: 1000,
+    nextReviewLessonCount: 1,
+    status: 'reviewDue',
+  };
+  const progress = createProgressV2({
+    currentLessonId: 'lesson-001',
+    skills: { 'math-number-sense-1': dueSkill },
+  });
+
+  const states = new Map(buildProjectMapStates(progress, 'lesson-001', 2000)
+    .map((item) => [item.projectId, item.state]));
+
+  assert.equal(states.get('project-001'), 'reviewDue');
+  assert.equal(states.get('project-012'), 'locked');
+  assert.equal(states.get('project-023'), 'locked');
+});
+
+test('reached projects expose only completed and next available phases', () => {
+  const skipped = createProgressV2({ currentLessonId: 'lesson-031' });
+  const skippedState = buildProjectMapStates(skipped, 'lesson-031', 5000)
+    .find((item) => item.projectId === 'project-001');
+  assert.equal(skippedState.state, 'learnable');
+  assert.deepEqual(skippedState.availableLessonIds, ['lesson-001']);
+
+  const inProgress = createProgressV2({
+    currentLessonId: 'lesson-010',
+    lessons: {
+      'lesson-001': completedLessonRecord(),
+      'lesson-002': {
+        status: 'viewed', viewedAt: 2000, completedCount: 0, lastCompletedAt: null, hintCount: 0,
+      },
+    },
+  });
+  const inProgressState = buildProjectMapStates(inProgress, 'lesson-010', 5000)
+    .find((item) => item.projectId === 'project-001');
+  assert.equal(inProgressState.state, 'inProgress');
+  assert.deepEqual(inProgressState.availableLessonIds, ['lesson-001', 'lesson-002']);
+
+  const dueLessons = Object.fromEntries(getLessonsForProject('project-002')
+    .map((lesson) => [lesson.id, completedLessonRecord()]));
+  dueLessons['lesson-004'].recentHintTimestamps = [4000, 4500];
+  const reviewDue = createProgressV2({
+    currentLessonId: 'lesson-010',
+    lessons: dueLessons,
+  });
+  const dueState = buildProjectMapStates(reviewDue, 'lesson-010', 5000)
+    .find((item) => item.projectId === 'project-002');
+  assert.equal(dueState.state, 'reviewDue');
+  assert.deepEqual(dueState.availableLessonIds, ['lesson-004', 'lesson-005', 'lesson-006']);
 });
 
 test('phase replay resolves the requested learn, build or review lesson exactly', () => {
