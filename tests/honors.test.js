@@ -230,3 +230,32 @@ test('garage renders fleet SVGs, earned honors and color swatches without commer
   }
   assert.doesNotMatch(html, /金币|货币|价格|购买|商店|排行榜/);
 });
+
+test('garage applies every unlocked upgrade to the rendered vehicle artwork', () => {
+  const vehicleUpgrades = VEHICLE_UPGRADE_MILESTONES.map(({ id }) => id);
+  const html = renderGarage({
+    vehicleIds: ['excavator'],
+    vehicleUpgrades,
+  });
+
+  assert.match(html, /class="scene-vehicle garage-vehicle-art vehicle-has-new-paint"/);
+  for (const upgradeClass of [
+    'vehicle-upgrade-work-light',
+    'vehicle-upgrade-body-stickers',
+    'vehicle-upgrade-safety-flag',
+    'vehicle-upgrade-reinforced-tires',
+    'vehicle-upgrade-paint',
+    'vehicle-upgrade-toolbox',
+    'vehicle-upgrade-region-medallion',
+    'vehicle-upgrade-chief-engineer-beacon',
+  ]) {
+    assert.match(html, new RegExp(`class="[^"]*${upgradeClass}[^"]*"`));
+  }
+  assert.match(html, /class="vehicle-upgrade vehicle-upgrade-paint"[^>]*fill="#37B8AA"/);
+});
+
+test('locked vehicle upgrades do not alter the fleet artwork', () => {
+  const html = renderGarage({ vehicleIds: ['excavator'], vehicleUpgrades: [] });
+
+  assert.doesNotMatch(html, /vehicle-has-new-paint|vehicle-upgrade-/);
+});

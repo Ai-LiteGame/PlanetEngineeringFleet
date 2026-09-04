@@ -26,6 +26,17 @@ const VEHICLE_LABELS = Object.freeze({
   'tunnel-borer': '隧道钻机',
 });
 
+const VEHICLE_UPGRADE_ART = Object.freeze({
+  'vehicle:work-light': '<g class="vehicle-upgrade vehicle-upgrade-work-light" fill="#FFF176" stroke="#263F50" stroke-width="4"><circle cx="230" cy="82" r="10"/><path d="M230 65V55M246 71l8-7M214 71l-8-7" fill="none"/></g>',
+  'vehicle:body-stickers': '<g class="vehicle-upgrade vehicle-upgrade-body-stickers" fill="#F7F3E8" stroke="#263F50" stroke-width="3"><path d="m162 103 5 9 10 2-7 7 2 10-10-5-9 5 2-10-7-7 10-2Z"/></g>',
+  'vehicle:safety-flag': '<g class="vehicle-upgrade vehicle-upgrade-safety-flag" stroke="#263F50" stroke-width="4" stroke-linejoin="round"><path d="M96 104V45"/><path d="M98 47h38l-9 13 9 13H98Z" fill="#F06E52"/></g>',
+  'vehicle:reinforced-tires': '<g class="vehicle-upgrade vehicle-upgrade-reinforced-tires" fill="none" stroke="#55D8CC" stroke-width="7"><circle cx="92" cy="137" r="23"/><circle cx="238" cy="137" r="23"/></g>',
+  'vehicle:new-paint': '<path class="vehicle-upgrade vehicle-upgrade-paint" d="M76 101H224Q236 101 236 113V126H76Z" fill="#37B8AA" stroke="#263F50" stroke-width="4" opacity=".9"/>',
+  'vehicle:toolbox': '<g class="vehicle-upgrade vehicle-upgrade-toolbox" stroke="#263F50" stroke-width="4"><rect x="184" y="105" width="43" height="29" rx="3" fill="#F06E52"/><path d="M196 105v-8h19v8M184 116h43" fill="none"/></g>',
+  'vehicle:region-medallion': '<g class="vehicle-upgrade vehicle-upgrade-region-medallion" stroke="#263F50" stroke-width="3"><circle cx="146" cy="116" r="15" fill="#F4B72B"/><path d="m146 106 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z" fill="#F7F3E8"/></g>',
+  'vehicle:chief-engineer-beacon': '<g class="vehicle-upgrade vehicle-upgrade-chief-engineer-beacon" stroke="#263F50" stroke-width="4" stroke-linejoin="round"><path d="M174 76h34l-4-20-8 9-6-13-7 13-9-9Z" fill="#FFF176"/><rect x="173" y="76" width="36" height="9" rx="3" fill="#F06E52"/></g>',
+});
+
 export function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -51,9 +62,20 @@ export function vehicleLabel(vehicleId) {
   return VEHICLE_LABELS[canonicalVehicleId(vehicleId)] ?? '工程车';
 }
 
-export function renderVehicle(vehicleId, className = '', label = vehicleLabel(vehicleId)) {
+export function renderVehicle(
+  vehicleId,
+  className = '',
+  label = vehicleLabel(vehicleId),
+  upgradeIds = [],
+) {
   const symbolId = canonicalVehicleId(vehicleId);
-  return `<svg class="scene-vehicle ${escapeHtml(className)}" viewBox="0 0 320 180" role="img" aria-label="${escapeHtml(label)}"><use href="assets/construction-fleet.svg#${escapeHtml(symbolId)}"></use></svg>`;
+  const unlocked = new Set(Array.isArray(upgradeIds) ? upgradeIds : []);
+  const upgradeArt = Object.entries(VEHICLE_UPGRADE_ART)
+    .filter(([upgradeId]) => unlocked.has(upgradeId))
+    .map(([, markup]) => markup)
+    .join('');
+  const paintClass = unlocked.has('vehicle:new-paint') ? ' vehicle-has-new-paint' : '';
+  return `<svg class="scene-vehicle ${escapeHtml(className)}${paintClass}" viewBox="0 0 320 180" role="img" aria-label="${escapeHtml(label)}"><use href="assets/construction-fleet.svg#${escapeHtml(symbolId)}"></use>${upgradeArt}</svg>`;
 }
 
 export function renderWorldScene(scene, options = {}) {

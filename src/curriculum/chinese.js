@@ -157,22 +157,75 @@ if (missingAssociations.length > 0) {
   throw new Error(`Chinese curriculum is missing associations for: ${missingAssociations.join('')}`);
 }
 
-const CONTEXTS = [
-  (word) => `老师带我们读“${word}”。`,
-  (word) => `词语卡上写着“${word}”。`,
-  (word) => `我在课本里圈出“${word}”。`,
-  (word) => `同学和我练习“${word}”。`,
-  (word) => `写字课要学“${word}”。`,
-  (word) => `我把“${word}”写进笔记本。`,
-  (word) => `今天的故事里有“${word}”。`,
-  (word) => `小组朗读“${word}”。`,
-  (word) => `词语游戏用到“${word}”。`,
-  (word) => `我在作业本上找到“${word}”。`,
-  (word) => `老师解释“${word}”的意思。`,
-  (word) => `我把“${word}”读给家人听。`,
-  (word) => `班级词卡展示“${word}”。`,
-  (word) => `今天复习“${word}”。`,
-];
+const PEOPLE_WORDS = /(人|朋友|爸爸|妈妈|爷爷|奶奶|哥哥|姐姐|弟弟|妹妹|老师|同学|孩子|司机|医生|护士|警察|消防员|邮递员|农民|厨师|画家|音乐家|科学家|宇航员|队员|客人|邻居|学生|校长|班长|同桌|工人|师傅)$/;
+const PLACE_WORDS = /(家|学校|房间|花园|田野|树林|森林|公园|动物园|图书馆|博物馆|医院|商店|市场|餐厅|厨房|卧室|客厅|阳台|浴室|街道|社区|小区|城市|乡村|车库|工地|农田|农场|牧场|菜园|果园|机场|港口|车站|站台|停车场|仓库|码头)$/;
+const FOOD_WORDS = /(饭|菜|瓜|豆|奶|茶|汤|水果|苹果|香蕉|葡萄|草莓|橙子|梨子|柿子|枣子|玉米|小麦|稻谷|白菜|萝卜|番茄|黄瓜|南瓜|土豆|蘑菇|豆角|青菜|面条|馒头|饺子|鸡蛋|豆腐|点心)$/;
+const NATURE_WORDS = /(天空|白云|山路|雨水|雪人|土地|田野|禾苗|花朵|青草|树木|水果|小鸟|昆虫|河水|大海|湖水|泉水|树林|森林|叶子|树枝|树根|太阳|阳光|影子|春天|夏天|秋天|冬天|彩虹|雷电|大雾|霜花|冰雪|沙子|泥土|岛屿|溪流|河流|瀑布|草原|沙漠|竹子|松树|柳树|荷花|菊花|梅花|桃花|植物|种子)$/;
+const ANIMAL_WORDS = /(小猫|小狗|小鸟|鱼缸|昆虫|山羊|兔子|青蛙|乌龟|小蛇|猴子|熊猫|老虎|狮子|大象|长颈鹿|梅花鹿|斑马|海豚|鲸鱼|企鹅|天鹅|燕子|喜鹊|孔雀|骆驼|袋鼠|松鼠|刺猬|蝙蝠|鲨鱼|螃蟹)$/;
+const VEHICLE_WORDS = /(汽车|小船|火车|飞机|公交|出租车|自行车|电动车|地铁|马车|校车|货车|吊车|铲车|推土机)$/;
+const MATERIAL_WORDS = /(木头|石头|文具|铅笔|纸张|工具|锤子|钉子|绳子|车轮|机器|零件|材料|砖块|钢筋|水泥|玻璃|金银|铜钱|钢铁|布料|棉花|丝线|塑料|橡胶|积木|拼图|齿轮|螺丝|扳手)$/;
+
+const CONTEXT_GROUPS = Object.freeze([
+  { matches: (word) => PEOPLE_WORDS.test(word), templates: [
+    (word) => `${word}笑着和大家打招呼。`,
+    (word) => `${word}和我们一起完成任务。`,
+    (word) => `大家向${word}挥手问好。`,
+  ] },
+  { matches: (word) => PLACE_WORDS.test(word), templates: [
+    (word) => `我们来到${word}参加活动。`,
+    (word) => `${word}里传来快乐的笑声。`,
+    (word) => `大家把${word}收拾得很整洁。`,
+  ] },
+  { matches: (word) => FOOD_WORDS.test(word), templates: [
+    (word) => `午餐时大家一起品尝${word}。`,
+    (word) => `餐桌上摆着新鲜的${word}。`,
+    (word) => `我们把${word}分给小伙伴。`,
+  ] },
+  { matches: (word) => ANIMAL_WORDS.test(word), templates: [
+    (word) => `${word}在安全的家园里活动。`,
+    (word) => `我们安静地观察${word}。`,
+    (word) => `${word}正在寻找食物。`,
+  ] },
+  { matches: (word) => NATURE_WORDS.test(word), templates: [
+    (word) => `我们在户外观察${word}。`,
+    (word) => `${word}让大自然更有生机。`,
+    (word) => `小朋友一起爱护${word}。`,
+  ] },
+  { matches: (word) => VEHICLE_WORDS.test(word), templates: [
+    (word) => `${word}沿着安全路线出发。`,
+    (word) => `我们排队登上${word}。`,
+    (word) => `${word}稳稳地到达终点。`,
+  ] },
+  { matches: (word) => MATERIAL_WORDS.test(word), templates: [
+    (word) => `工程车把${word}送到工地。`,
+    (word) => `小队清点好需要的${word}。`,
+    (word) => `大家把${word}整齐地放好。`,
+  ] },
+  { matches: () => true, templates: [
+    (word) => `今天的活动需要用到${word}。`,
+    (word) => `小伙伴在生活中发现了${word}。`,
+    (word) => `${word}让这次任务顺利完成。`,
+    (word) => `大家一起说说见过的${word}。`,
+    (word) => `我们在工程故事里遇见${word}。`,
+    (word) => `小队认真观察眼前的${word}。`,
+  ] },
+]);
+
+const usedExamples = new Set();
+
+function contextFor(word, index) {
+  const templates = CONTEXT_GROUPS.find((group) => group.matches(word)).templates;
+  for (let offset = 0; offset < templates.length; offset += 1) {
+    const example = templates[(index + offset) % templates.length](word);
+    if (!usedExamples.has(example)) {
+      usedExamples.add(example);
+      return example;
+    }
+  }
+  const example = `工程小队在第${index + 1}次任务中用到${word}。`;
+  usedExamples.add(example);
+  return example;
+}
 
 const EXAMPLE_OVERRIDES = new Map([
   ['银', '老师用金银讲解不同的金属。'],
@@ -187,7 +240,7 @@ const makeChineseItem = (char, index) => {
   const tier = index < 200 ? 1 : index < 450 ? 2 : 3;
   const word = WORD_OVERRIDES.get(char) ?? CHARACTER_POOL.slice(index - (index % 2), index - (index % 2) + 2).join('');
   const example = EXAMPLE_OVERRIDES.get(char)
-    ?? `${CONTEXTS[index % CONTEXTS.length](word)} 我会写好“${char}”。`;
+    ?? contextFor(word, index);
   return {
     id: `zh-${String(index + 1).padStart(3, '0')}`,
     char,

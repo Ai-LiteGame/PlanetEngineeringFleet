@@ -215,9 +215,15 @@ button:disabled { cursor: default; }
 
 button.project-node { cursor: pointer; }
 
-.project-node.is-complete { border-color: var(--green); background: #e0f5e5; color: var(--green-dark); }
+.project-node.is-complete, .project-node.is-completed { border-color: var(--green); background: #e0f5e5; color: var(--green-dark); }
 
-.project-node.is-complete::after { background: var(--green); }
+.project-node.is-complete::after, .project-node.is-completed::after { background: var(--green); }
+
+.project-node.is-reviewDue { border-color: var(--yellow-dark); background: #fff3c4; color: #765508; }
+
+.project-node.is-inProgress { border-color: var(--blue); background: #e7f5f8; color: var(--blue); }
+
+.project-node.is-learnable { border-color: var(--coral); background: #fff0ec; color: var(--coral); }
 
 .project-node.is-current { border-color: var(--coral); background: #fff0ec; color: var(--coral); box-shadow: 0 0 0 5px rgb(223 91 76 / 13%); }
 
@@ -231,6 +237,33 @@ button.project-node { cursor: pointer; }
 
 .legend-dot.complete { background: var(--green); }
 .legend-dot.current { background: var(--coral); }
+.legend-dot.review-due { background: var(--yellow-dark); }
+.legend-dot.in-progress { background: var(--blue); }
+
+.phase-replay { min-height: 68px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 8px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+.phase-replay > strong { margin-right: auto; }
+
+.phase-button { min-width: 88px; min-height: 56px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border: 2px solid #bcd4d8; border-radius: 8px; background: white; color: var(--blue); font-weight: 850; cursor: pointer; }
+
+.phase-button .ui-icon { width: 19px; height: 19px; }
+
+/* Placement */
+.placement-shell { min-height: 100svh; display: grid; grid-template-rows: auto 1fr; background: #f2f8f3; }
+
+.placement-content { width: min(900px, 100%); margin: 0 auto; padding: clamp(24px, 6vw, 64px) clamp(14px, 5vw, 48px) max(32px, env(safe-area-inset-bottom)); }
+
+.placement-heading { text-align: center; }
+
+.placement-heading h1 { margin: 5px auto 18px; max-width: 760px; font-size: 30px; line-height: 1.25; letter-spacing: 0; }
+
+.placement-heading .speaker-button { margin: 16px auto 0; }
+
+.problem-visual { width: min(560px, 100%); min-height: 76px; display: grid; place-items: center; margin: 14px auto; padding: 14px; white-space: pre-line; overflow-wrap: anywhere; border: 2px solid #bcd4d8; border-radius: 8px; background: white; font-size: 24px; font-weight: 900; }
+
+.placement-next { min-height: 70px; display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 18px; }
+
+.placement-next p { margin: 0; color: var(--green-dark); font-weight: 850; }
 
 /* Garage */
 .garage-shell { display: grid; grid-template-rows: auto 1fr; }
@@ -262,6 +295,7 @@ button.project-node { cursor: pointer; }
 .garage-vehicle { min-width: 0; height: 150px; display: grid; grid-template-rows: 1fr auto; align-items: center; padding: 8px 10px 12px; border: 2px solid var(--line); border-radius: 8px; background: white; text-align: center; }
 
 .garage-vehicle-art { width: 100%; height: 105px; }
+.vehicle-upgrade { pointer-events: none; }
 
 .garage-vehicle strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 
@@ -576,7 +610,7 @@ button.project-node { cursor: pointer; }
   .map-heading { grid-template-columns: 1fr; gap: 14px; }
   .map-heading h1 { font-size: 27px; }
   .map-actions { align-items: stretch; flex-direction: column-reverse; }
-  .continue-course, .garage-button { width: 100%; }
+  .continue-course, .garage-button, .placement-button { width: 100%; }
   .region-map { gap: 9px; margin-top: 18px; }
   .map-notice { align-items: stretch; flex-direction: column; }
   .region-landmark { aspect-ratio: 1.35; }
@@ -584,6 +618,11 @@ button.project-node { cursor: pointer; }
   .region-label strong { font-size: 13px; }
   .route-heading { align-items: end; }
   .route-vehicle span { display: none; }
+  .phase-replay { align-items: stretch; }
+  .phase-replay > strong { width: 100%; }
+  .phase-button { flex: 1; }
+  .placement-heading h1 { font-size: 24px; }
+  .placement-next { align-items: stretch; flex-direction: column; text-align: center; }
   .lesson-shell, .completion-shell { grid-template-rows: auto minmax(230px, 34svh) 1fr; }
   .scene-vehicle-main { left: 0; bottom: 0; width: 58vw; min-width: 185px; }
   .lesson-controls, .completion-controls { padding: 20px 14px max(24px, env(safe-area-inset-bottom)); }

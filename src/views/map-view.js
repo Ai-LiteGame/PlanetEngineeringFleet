@@ -9,25 +9,48 @@ import {
 
 const PHASE_LABELS = Object.freeze({ learn: '勘察', build: '施工', review: '验收' });
 
-function projectNode(project, currentProjectId, completedProjectIds) {
+const STATE_LABELS = Object.freeze({
+  completed: '已完成',
+  reviewDue: '待复习',
+  inProgress: '施工中',
+  learnable: '可学习',
+  locked: '未开放',
+});
+
+const STATE_ICONS = Object.freeze({
+  completed: 'check',
+  reviewDue: 'replay',
+  inProgress: 'play',
+  learnable: 'play',
+  locked: 'lock',
+});
+
+function projectNode(project, currentProjectId, state) {
   const id = escapeHtml(project.id);
   const label = `${project.ordinal}号工程：${project.title}`;
-  if (completedProjectIds.has(project.id)) {
+  if (state !== 'locked') {
+    const current = project.id === currentProjectId;
     return `
-      <button class="project-node is-complete" type="button" data-action="open-project" data-project="${id}" aria-label="重玩${escapeHtml(label)}" title="${escapeHtml(project.title)}">
-        ${icon('check')}<span>${project.ordinal}</span>
+      <button class="project-node is-${escapeHtml(state)} ${current ? 'is-current' : ''}" type="button" data-action="open-project" data-project="${id}" data-state="${escapeHtml(state)}" ${current ? 'aria-current="step"' : ''} aria-label="${STATE_LABELS[state]}，${escapeHtml(label)}" title="${escapeHtml(project.title)}">
+        ${icon(STATE_ICONS[state])}<span>${project.ordinal}</span>
       </button>`;
   }
-  if (project.id === currentProjectId) {
-    return `
-      <span class="project-node is-current" data-project="${id}" aria-current="step" aria-label="当前${escapeHtml(label)}" title="${escapeHtml(project.title)}">
-        ${icon('play')}<span>${project.ordinal}</span>
-      </span>`;
-  }
   return `
-    <span class="project-node is-locked" data-project="${id}" aria-disabled="true" aria-label="尚未开放的${escapeHtml(label)}" title="${escapeHtml(project.title)}">
+    <span class="project-node is-locked" data-project="${id}" data-state="locked" aria-disabled="true" aria-label="尚未开放的${escapeHtml(label)}" title="${escapeHtml(project.title)}">
       ${icon('lock')}<span>${project.ordinal}</span>
     </span>`;
+}
+
+function phaseReplay(project) {
+  if (!project) return '';
+  return `
+    <div class="phase-replay" aria-label="选择${escapeHtml(project.title)}的课程阶段">
+      <strong>${escapeHtml(project.title)}</strong>
+      ${getLessonsForProject(project.id).map((lesson) => `
+        <button class="phase-button" type="button" data-action="open-lesson" data-lesson="${escapeHtml(lesson.id)}">
+          ${icon(lesson.phase === 'review' ? 'replay' : 'play')}<span>${escapeHtml(PHASE_LABELS[lesson.phase])}</span>
+        </button>`).join('')}
+    </div>`;
 }
 
 function regionLandmark(region, currentRegionId, completedProjectIds, currentProject, assetsAvailable) {
@@ -64,6 +87,7 @@ function regionLandmark(region, currentRegionId, completedProjectIds, currentPro
 export function renderMap(model) {
   const regions = Array.isArray(model?.regions) ? model.regions : [];
   const completedProjectIds = new Set(model?.completedProjectIds ?? []);
+  const suppliedStates = new Map((model?.projectStates ?? []).map((item) => [item.projectId, item.state]));
   const currentProject = getProject(model?.currentProjectId);
   const currentLesson = getLesson(model?.currentLessonId);
   if (!currentProject || !currentLesson || currentProject.regionId !== model?.currentRegionId) {
@@ -80,6 +104,10 @@ export function renderMap(model) {
     [...completedProjectIds],
   );
   const regionProjects = PROJECTS.filter((project) => project.regionId === currentRegion.id);
+  const stateForProject = (project) => suppliedStates.get(project.id)
+    ?? (completedProjectIds.has(project.id) ? 'completed' : project.id === currentProject.id ? 'learnable' : 'locked');
+  const selectedProject = getProject(model.selectedProjectId) ?? currentProject;
+  const selectedState = stateForProject(selectedProject);
   const localProjectIndex = regionProjects.findIndex((project) => project.id === currentProject.id) + 1;
   const phase = PHASE_LABELS[currentLesson.phase] ?? '学习';
   const assetsAvailable = model.assetsAvailable !== false;
@@ -105,6 +133,7 @@ export function renderMap(model) {
             <p>${escapeHtml(currentProject.outcome)}</p>
           </div>
           <div class="map-actions">
+            ${model.placementAvailable ? `<button class="secondary-button placement-button" type="button" data-action="start-placement">${icon('map')}<span>找找我的起点</span></button>` : ''}
             <button class="secondary-button garage-button" type="button" data-action="open-garage">
               ${icon('star')}<span>我的车库</span>
             </button>
@@ -123,9 +152,10 @@ export function renderMap(model) {
             <div class="route-vehicle" aria-label="当前车辆">${assetsAvailable ? renderVehicle(currentScene.vehicleSymbolId, '') : icon('map')}<span>${escapeHtml(currentProject.title)}</span></div>
           </div>
           <div class="route-line" aria-label="区域项目节点">
-            ${regionProjects.map((project) => projectNode(project, currentProject.id, completedProjectIds)).join('')}
+            ${regionProjects.map((project) => projectNode(project, currentProject.id, stateForProject(project))).join('')}
           </div>
-          <p class="route-legend"><span><i class="legend-dot complete"></i>已完成可重玩</span><span><i class="legend-dot current"></i>当前工程</span><span><i class="legend-dot locked"></i>待开放</span></p>
+          ${selectedState === 'completed' ? phaseReplay(selectedProject) : ''}
+          <p class="route-legend"><span><i class="legend-dot complete"></i>已完成</span><span><i class="legend-dot review-due"></i>待复习</span><span><i class="legend-dot in-progress"></i>施工中</span><span><i class="legend-dot current"></i>可学习</span><span><i class="legend-dot locked"></i>未开放</span></p>
         </section>
       </section>
     </div>`;

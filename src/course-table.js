@@ -8,6 +8,7 @@ import {
   getProject,
 } from './curriculum/index.js';
 import { skillStatus } from './mastery.js';
+import { RECENT_HINT_WINDOW_MS } from './storage.js';
 
 const LESSON_STATUSES = ['notStarted', 'viewed', 'practiced', 'reviewDue', 'mastered'];
 const SUBJECTS = ['chinese', 'english', 'math'];
@@ -74,14 +75,18 @@ function rowContent(lesson, byProject) {
   return byProject.get(lesson.projectId) ?? direct;
 }
 
-function effectiveLessonStatus(record, skillIds, skills, now) {
+function effectiveLessonStatus(record, skillIds, skills, now, lessonCount) {
   const completed = Number.isInteger(record.completedCount) && record.completedCount > 0;
   const viewed = Number.isInteger(record.viewedAt);
   if (!completed && !viewed) return 'notStarted';
 
   const statuses = skillIds.map((id) => (
-    skills?.[id] ? skillStatus(skills[id], now) : null
+    skills?.[id] ? skillStatus(skills[id], now, lessonCount) : null
   ));
+  const recentHintCount = (record.recentHintTimestamps ?? []).filter((timestamp) => (
+    timestamp <= now && timestamp >= now - RECENT_HINT_WINDOW_MS
+  )).length;
+  if (completed && recentHintCount >= 2) return 'reviewDue';
   if (statuses.includes('reviewDue')) return 'reviewDue';
   if (statuses.length > 0 && statuses.every((status) => status === 'mastered')) return 'mastered';
   if (completed) return 'practiced';
@@ -114,7 +119,8 @@ export function buildCourseRows(lessons, progress = {}, now = Date.now()) {
       ...content.englishPatternIds,
       lesson.mathSkillId,
     ].filter(Boolean));
-    const status = effectiveLessonStatus(record, skillIds, progress?.skills, now);
+    const lessonCount = Array.isArray(progress?.completionIds) ? progress.completionIds.length : null;
+    const status = effectiveLessonStatus(record, skillIds, progress?.skills, now, lessonCount);
 
     return {
       id: lesson.id,
@@ -145,6 +151,9 @@ export function buildCourseRows(lessons, progress = {}, now = Date.now()) {
       completedCount: Number.isInteger(record.completedCount) ? record.completedCount : 0,
       lastCompletedAt: Number.isInteger(record.lastCompletedAt) ? record.lastCompletedAt : null,
       hintCount: Number.isInteger(record.hintCount) ? record.hintCount : 0,
+      recentHintCount: (record.recentHintTimestamps ?? []).filter((timestamp) => (
+        timestamp <= now && timestamp >= now - RECENT_HINT_WINDOW_MS
+      )).length,
       status,
       subjects,
     };

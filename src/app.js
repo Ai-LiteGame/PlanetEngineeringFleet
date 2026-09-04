@@ -5,9 +5,18 @@ import {
   createLessonState,
   currentQuestion,
   restoreLessonState,
-  submitAnswer,
+  saveLessonStateSnapshot,
+  submitAnswerAndPersist,
+  synchronizeSoundPreference,
 } from './game-core.js';
 import { getSceneState } from './scene-model.js';
+import {
+  advancePlacement,
+  applyPlacementResult,
+  buildProjectMapStates,
+  createPlacementState,
+  submitPlacementAnswer,
+} from './progression.js';
 import {
   STAGE_HONOR_MILESTONES,
   regionMedal,
@@ -17,7 +26,6 @@ import {
   clearActiveLesson,
   loadActiveLesson,
   loadProgress,
-  saveActiveLesson,
   saveProgress,
 } from './storage.js';
 import {
@@ -39,6 +47,7 @@ import { renderCourseTable } from './views/course-table-view.js';
 import { renderLesson } from './views/lesson-view.js';
 import { renderMap } from './views/map-view.js';
 import { renderGarage } from './views/garage-view.js';
+import { renderPlacement } from './views/placement-view.js';
 
 const app = document.querySelector('#app');
 const settingsDialog = document.querySelector('#settings-dialog');
@@ -51,6 +60,8 @@ const parentTabButtons = settingsDialog.querySelectorAll('[data-parent-tab]');
 let progress = loadProgress();
 let screen = 'map';
 let lessonState = null;
+let placementState = null;
+let selectedProjectId = null;
 let repeatState = 'ready';
 let readyToContinue = false;
 let feedbackMessage = '';
@@ -116,12 +127,16 @@ function sceneFor(state, completedIds = completedProjectIds()) {
 
 function mapModel() {
   const { lesson, project, region } = coursePosition();
+  const currentProjectStates = buildProjectMapStates(progress, lesson.id, Date.now());
   return {
     regions: REGIONS,
     currentRegionId: region.id,
     currentProjectId: project.id,
     currentLessonId: lesson.id,
     completedProjectIds: completedProjectIds(),
+    projectStates: currentProjectStates,
+    selectedProjectId: selectedProjectId ?? project.id,
+    placementAvailable: progress.placement === null && lesson.ordinal <= 30,
     soundEnabled: progress.settings.soundEnabled,
     storageAvailable: progress.storageAvailable,
     errorMessage: mapErrorMessage,
@@ -180,6 +195,14 @@ function completionModel() {
   };
 }
 
+function placementModel() {
+  return {
+    state: placementState,
+    interaction: placementState?.interactions?.[placementState.interactionIndex],
+    soundEnabled: progress.settings.soundEnabled,
+  };
+}
+
 function renderEmergency(error) {
   console.error(error);
   app.innerHTML = `
@@ -204,6 +227,7 @@ function recoverToMap(message = '工程资料暂时未加载，请重试。') {
 function render() {
   try {
     if (screen === 'lesson') app.innerHTML = renderLesson(lessonModel());
+    else if (screen === 'placement') app.innerHTML = renderPlacement(placementModel());
     else if (screen === 'completion') app.innerHTML = renderCompletion(completionModel());
     else if (screen === 'garage') app.innerHTML = renderGarage(garageModel());
     else app.innerHTML = renderMap(mapModel());
@@ -218,12 +242,7 @@ function render() {
 }
 
 function saveLessonSnapshot() {
-  saveActiveLesson(undefined, {
-    lessonId: lessonState.lessonId,
-    interactionIndex: lessonState.interactionIndex,
-    seed: lessonState.seed,
-    answers: lessonState.answers,
-  });
+  saveLessonStateSnapshot(lessonState, undefined);
 }
 
 function beginEnglishRepeat(interaction) {
@@ -266,6 +285,44 @@ function beginLesson(lessonId) {
   speak(`${lesson.title}，准备开始。`, 'zh-CN');
 }
 
+function beginPlacement() {
+  clearInteractionTimers();
+  const seed = Date.now();
+  placementState = createPlacementState(progress, seed, seed);
+  screen = 'placement';
+  render();
+  const interaction = placementState.interactions[0];
+  speak(interaction.speech.text, interaction.speech.lang);
+}
+
+function handlePlacementAnswer(answerId) {
+  if (screen !== 'placement' || placementState?.answered) return;
+  placementState = submitPlacementAnswer(placementState, answerId);
+  render();
+  playSuccess();
+}
+
+function continuePlacement() {
+  if (screen !== 'placement' || !placementState?.answered) return;
+  placementState = advancePlacement(placementState);
+  if (placementState.completed) {
+    const result = applyPlacementResult(progress, placementState, Date.now());
+    progress = result.progress;
+    saveProgress(undefined, progress);
+    placementState = null;
+    selectedProjectId = null;
+    screen = 'map';
+    mapErrorMessage = result.advanced
+      ? '找到新的施工起点了，之前的工程仍可随时回来挑战。'
+      : '路线准备好了，从现在的工程继续最合适。';
+    render();
+    return;
+  }
+  render();
+  const interaction = placementState.interactions[placementState.interactionIndex];
+  speak(interaction.speech.text, interaction.speech.lang);
+}
+
 function continueFromBriefing() {
   lessonState = advance(lessonState);
   progress = lessonState.progress;
@@ -280,7 +337,7 @@ function handleAnswer(answerId) {
   if (!interaction || lessonState.locked || lessonState.answered) return;
   if (interaction.subject === 'english' && repeatState !== 'ready') return;
 
-  const result = submitAnswer(lessonState, answerId);
+  const result = submitAnswerAndPersist(lessonState, answerId, undefined);
   lessonState = result.state;
   if (!result.correct) {
     feedbackKind = 'is-hint';
@@ -356,14 +413,17 @@ function repeatSpeech() {
 }
 
 function toggleSound() {
-  progress = {
-    ...progress,
-    settings: { ...progress.settings, soundEnabled: !progress.settings.soundEnabled },
-  };
+  applySoundPreference(!progress.settings.soundEnabled);
+  render();
+}
+
+function applySoundPreference(soundEnabled) {
+  const synchronized = synchronizeSoundPreference(progress, lessonState, soundEnabled);
+  progress = synchronized.progress;
+  lessonState = synchronized.lessonState;
   setSoundEnabled(progress.settings.soundEnabled);
   soundToggle.checked = progress.settings.soundEnabled;
   saveProgress(undefined, progress);
-  render();
 }
 
 function renderCoursePanel() {
@@ -407,7 +467,17 @@ function restoreActiveLesson() {
     progress = lessonState.progress;
     saveProgress(undefined, progress);
     screen = 'lesson';
-    presentInteraction();
+    if (lessonState.answered) {
+      const interaction = currentQuestion(lessonState);
+      repeatState = 'ready';
+      readyToContinue = true;
+      feedbackMessage = interaction.success;
+      feedbackKind = 'is-success';
+      actionActive = false;
+      render();
+    } else {
+      presentInteraction();
+    }
   } catch (error) {
     console.error(error);
     recoverToMap('上次课程无法恢复，已回到工程地图。');
@@ -425,7 +495,21 @@ app.addEventListener('click', (event) => {
   try {
     const { action } = actionTarget.dataset;
     if (action === 'continue-course') beginLesson(currentLessonId());
-    else if (action === 'open-project') beginLesson(getLessonsForProject(actionTarget.dataset.project)[0]?.id);
+    else if (action === 'open-project') {
+      selectedProjectId = actionTarget.dataset.project;
+      render();
+    } else if (action === 'open-lesson') beginLesson(actionTarget.dataset.lesson);
+    else if (action === 'start-placement') beginPlacement();
+    else if (action === 'placement-answer') handlePlacementAnswer(actionTarget.dataset.answer);
+    else if (action === 'placement-continue') continuePlacement();
+    else if (action === 'placement-repeat') {
+      const interaction = placementState?.interactions?.[placementState.interactionIndex];
+      if (interaction) speak(interaction.speech.text, interaction.speech.lang);
+    } else if (action === 'placement-exit') {
+      placementState = null;
+      screen = 'map';
+      render();
+    }
     else if (action === 'open-garage') {
       screen = 'garage';
       render();
@@ -507,12 +591,7 @@ settingsDialog.addEventListener('change', (event) => {
 });
 
 soundToggle.addEventListener('change', () => {
-  progress = {
-    ...progress,
-    settings: { ...progress.settings, soundEnabled: soundToggle.checked },
-  };
-  setSoundEnabled(progress.settings.soundEnabled);
-  saveProgress(undefined, progress);
+  applySoundPreference(soundToggle.checked);
   renderCoursePanel();
   render();
 });

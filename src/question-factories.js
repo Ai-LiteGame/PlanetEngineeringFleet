@@ -282,8 +282,8 @@ function takePrioritized(groups, count, random) {
   return selected;
 }
 
-function choice(id, label, visual = label) {
-  return { id, label, visual, a11yLabel: label };
+function choice(id, label, visual = label, details = {}) {
+  return { id, label, visual, a11yLabel: label, ...details };
 }
 
 function languageChoices(answer, pool, labelFor, visualFor, random) {
@@ -302,7 +302,7 @@ function languageChoices(answer, pool, labelFor, visualFor, random) {
 }
 
 function interaction(fields) {
-  return {
+  const value = {
     id: '',
     kind: fields.kind,
     subject: fields.subject,
@@ -315,6 +315,13 @@ function interaction(fields) {
     hint: fields.hint,
     action: fields.action,
   };
+  if (fields.problem) value.problem = structuredClone(fields.problem);
+  if (fields.visualPrompt) value.visualPrompt = fields.visualPrompt;
+  return value;
+}
+
+function semanticChoice(item, skillIds = [item.id]) {
+  return choice(item.id, item.label, item.visual, { skillIds: [...skillIds] });
 }
 
 function chineseRecognition(item, random) {
@@ -346,6 +353,39 @@ function chineseWordMatch(item, random) {
     answerId: item.id,
     success: `${item.char}可以组成“${item.word}”。`,
     hint: item.example,
+    action: 'dig',
+  });
+}
+
+function chineseGroupMatch(items, random) {
+  const targetChars = items.map((item) => item.char);
+  const excludedChars = new Set(targetChars);
+  const distractorPool = shuffled(CHINESE_ITEMS.filter((candidate) => (
+    candidate.tier === items[0].tier
+      && !items.some((item) => item.id === candidate.id)
+      && [...excludedChars].every((char) => !candidate.word.includes(char))
+  )), random);
+  const alternatives = [items];
+  let cursor = 0;
+  while (alternatives.length < 3 && cursor + items.length <= distractorPool.length) {
+    alternatives.push(distractorPool.slice(cursor, cursor + items.length));
+    cursor += items.length;
+  }
+  const choices = alternatives.map((group) => semanticChoice({
+    id: group[0].id,
+    label: group.map((item) => item.word).join('、'),
+    visual: group.map((item) => `${item.char}：${item.word}`).join('\n'),
+  }, group.map((item) => item.id)));
+  return interaction({
+    kind: 'chinese-group-match',
+    subject: 'chinese',
+    skillIds: items.map((item) => item.id),
+    prompt: `找到分别含有“${targetChars.join('、')}”的词语组。`,
+    speech: { text: `找到分别含有${targetChars.join('、')}的词语组`, lang: 'zh-CN' },
+    choices: shuffled(choices, random),
+    answerId: items[0].id,
+    success: `${targetChars.join('、')}分别组成${items.map((item) => item.word).join('、')}。`,
+    hint: items.map((item) => item.example).join(' '),
     action: 'dig',
   });
 }
@@ -407,17 +447,104 @@ function englishListen(item, random) {
   });
 }
 
+const SLOT_CATEGORIES = Object.freeze({
+  item: ['home', 'school', 'play', 'engineering', 'nature'],
+  thing: ['home', 'school', 'play', 'engineering', 'nature'],
+  things: ['home', 'school', 'play', 'engineering', 'nature'],
+  family: ['family'],
+  color: ['color'],
+  animal: ['animal'],
+  food: ['food'],
+  action: ['action', 'engineering'],
+  place: ['place', 'transport'],
+  number: ['number'],
+  vehicle: ['vehicle'],
+  clothing: ['clothing', 'safety'],
+  tool: ['tool', 'engineering'],
+  month: ['time', 'season'],
+  season: ['season'],
+  name: ['nature'],
+});
+
+function slotVocabulary(slot, tier) {
+  const categories = SLOT_CATEGORIES[slot] ?? [];
+  const exactTier = ENGLISH_WORDS.filter((word) => (
+    word.tier === tier && categories.includes(word.category)
+  ));
+  const tierFallback = ENGLISH_WORDS.filter((word) => word.tier === tier);
+  return exactTier.length > 0 ? exactTier : tierFallback;
+}
+
+function instantiatePattern(item, random) {
+  const slotValues = item.slots.map((slot) => {
+    const candidates = slotVocabulary(slot, item.tier);
+    const word = candidates[randomInteger(random, 0, candidates.length - 1)];
+    return { slot, wordId: word.id, word: word.word, meaning: word.meaning, tier: word.tier };
+  });
+  let text = item.text;
+  let meaning = item.meaning;
+  for (const value of slotValues) {
+    text = text.replace(`{${value.slot}}`, value.word);
+    meaning = meaning.replace('……', value.meaning);
+  }
+  return { ...item, text, meaning, slotValues };
+}
+
 function englishPatternContext(item, random) {
+  const completed = instantiatePattern(item, random);
+  const alternatives = shuffled(
+    ENGLISH_PATTERNS.filter((candidate) => candidate.tier === item.tier && candidate.id !== item.id),
+    random,
+  ).slice(0, 2).map((candidate) => instantiatePattern(candidate, random));
+  const choices = shuffled([completed, ...alternatives], random).map((candidate) => (
+    choice(candidate.id, candidate.meaning, candidate.meaning, {
+      skillIds: [candidate.id],
+      patternText: candidate.text,
+      slotValues: candidate.slotValues,
+    })
+  ));
   return interaction({
     kind: 'english-pattern-context',
     subject: 'english',
     skillIds: [item.id],
-    prompt: '工程队长说了什么？',
-    speech: { text: item.text, lang: 'en-US' },
-    choices: languageChoices(item, ENGLISH_PATTERNS, (entry) => entry.meaning, (entry) => entry.meaning, random),
+    prompt: '听工程队长和小司机对话，选择这句话的意思。',
+    speech: { text: completed.text, lang: 'en-US' },
+    choices,
     answerId: item.id,
-    success: `${item.text} ${item.meaning}`,
-    hint: `这句话的意思是“${item.meaning}”。`,
+    success: `${completed.text} ${completed.meaning}`,
+    hint: `工程队长正在表达：${completed.meaning}`,
+    action: 'signal',
+  });
+}
+
+function englishGroupContext(items, random) {
+  const resolvedItems = items.map((item) => (
+    englishPatternById.has(item.id) ? instantiatePattern(item, random) : item
+  ));
+  const poolFor = (item) => {
+    const source = englishPatternById.has(item.id) ? ENGLISH_PATTERNS : ENGLISH_WORDS;
+    return shuffled(source.filter((candidate) => candidate.tier === item.tier && candidate.id !== item.id), random)[0];
+  };
+  const alternatives = Array.from({ length: 2 }, () => items.map((item) => {
+    const candidate = poolFor(item);
+    return englishPatternById.has(candidate.id) ? instantiatePattern(candidate, random) : candidate;
+  }));
+  const groups = [resolvedItems, ...alternatives];
+  const choices = shuffled(groups.map((group) => semanticChoice({
+    id: group[0].id,
+    label: group.map((item) => item.meaning).join('；'),
+    visual: group.map((item) => item.meaning).join('\n'),
+  }, group.map((item) => item.id))), random);
+  return interaction({
+    kind: 'english-group-context',
+    subject: 'english',
+    skillIds: items.map((item) => item.id),
+    prompt: '听完整的工程对话，选择每一句对应的意思。',
+    speech: { text: resolvedItems.map((item) => item.word ?? item.text).join('. '), lang: 'en-US' },
+    choices,
+    answerId: items[0].id,
+    success: resolvedItems.map((item) => `${item.word ?? item.text}，${item.meaning}`).join(' '),
+    hint: resolvedItems.map((item) => item.meaning).join('；'),
     action: 'signal',
   });
 }
@@ -451,18 +578,41 @@ function numericInteraction(skill, kind, prompt, speech, answer, success, hint, 
   });
 }
 
+function quantityGroups(quantity) {
+  return { tens: Math.floor(quantity / 10), ones: quantity % 10 };
+}
+
+function quantityVisual(quantity, unitGlyph = '●') {
+  const groups = quantityGroups(quantity);
+  const tens = groups.tens > 0 ? `${'▦'.repeat(groups.tens)} 十格` : '';
+  const ones = groups.ones > 0 ? `${unitGlyph.repeat(groups.ones)} 个` : '';
+  return [tens, ones].filter(Boolean).join('\n') || '空车';
+}
+
 function countQuestion(skill, random) {
   const answer = randomInteger(random, skill.min, skill.max);
-  return numericInteraction(
-    skill,
-    'math-count',
-    `哪辆车装了 ${answer} 块材料？`,
-    `哪辆车装了${answer}块材料`,
-    answer,
-    `正好是 ${answer} 块。`,
-    `一边点，一边数到 ${answer}。`,
-    random,
-  );
+  const unitGlyph = '●';
+  const values = numericChoices(answer, skill, random).map((item) => Number(item.id.replace('number-', '')));
+  const choices = values.map((value, index) => choice(
+    `number-${value}`,
+    `${String.fromCharCode(65 + index)}号车`,
+    quantityVisual(value, unitGlyph),
+    { quantity: value, groups: quantityGroups(value) },
+  ));
+  return interaction({
+    kind: 'math-count',
+    subject: 'math',
+    skillIds: [skill.id],
+    prompt: '看订单卡上的材料图，找出装着相同数量的车。',
+    speech: { text: '数一数订单卡，再找数量相同的车', lang: 'zh-CN' },
+    visualPrompt: quantityVisual(answer, unitGlyph),
+    problem: { type: 'quantity-match', targetQuantity: answer, unitGlyph, representation: 'ten-frames' },
+    choices,
+    answerId: `number-${answer}`,
+    success: `两边都是 ${answer} 块材料。`,
+    hint: '一格代表十个圆点，再数旁边的小圆点。',
+    action: 'lift',
+  });
 }
 
 function additionQuestion(skill, random) {
@@ -536,84 +686,242 @@ function patternQuestion(skill, random) {
 }
 
 function spaceQuestion(skill, random) {
-  const answer = SHAPES[randomInteger(random, 0, SHAPES.length - 1)];
+  if (skill.tier === 1) {
+    const answer = SHAPES[randomInteger(random, 0, SHAPES.length - 1)];
+    return interaction({
+      kind: 'math-space',
+      subject: 'math',
+      skillIds: [skill.id],
+      prompt: '看施工缺口的轮廓，哪块形状能正好补上？',
+      speech: { text: '看缺口轮廓，找到能补上的形状', lang: 'zh-CN' },
+      visualPrompt: `缺口 ${answer.visual}`,
+      problem: { tier: 1, rule: 'match-outline', targetShape: answer.id },
+      choices: shuffled(SHAPES, random).map((item) => choice(
+        item.id,
+        item.label,
+        item.visual,
+        { semantic: { shape: item.id } },
+      )),
+      answerId: answer.id,
+      success: `${answer.label}正好匹配缺口。`,
+      hint: '沿着缺口的边看一圈，再比较形状。',
+      action: 'place',
+    });
+  }
+  if (skill.tier === 2) {
+    const relations = [
+      { id: 'space-left', label: '在左边', visual: '🚧  🌉', relation: 'left' },
+      { id: 'space-right', label: '在右边', visual: '🌉  🚧', relation: 'right' },
+      { id: 'space-above', label: '在上面', visual: '  🚧\n  🌉', relation: 'above' },
+    ];
+    const answer = relations[randomInteger(random, 0, relations.length - 1)];
+    return interaction({
+      kind: 'math-space',
+      subject: 'math',
+      skillIds: [skill.id],
+      prompt: '路障和小桥的位置与任务图相同的是哪一幅？',
+      speech: { text: '比较路障和小桥的位置', lang: 'zh-CN' },
+      visualPrompt: answer.visual,
+      problem: { tier: 2, rule: 'relative-position', targetRelation: answer.relation },
+      choices: shuffled(relations, random).map((item) => choice(
+        item.id,
+        item.label,
+        item.visual,
+        { semantic: { relation: item.relation } },
+      )),
+      answerId: answer.id,
+      success: '路障和小桥的相对位置完全相同。',
+      hint: '先固定小桥，再看路障在它的哪一边。',
+      action: 'place',
+    });
+  }
+  const rotations = [
+    { id: 'space-up', label: '向上', visual: '⬆', rotation: 0 },
+    { id: 'space-right', label: '向右', visual: '➡', rotation: 90 },
+    { id: 'space-down', label: '向下', visual: '⬇', rotation: 180 },
+  ];
+  const answer = rotations[randomInteger(random, 0, rotations.length - 1)];
   return interaction({
     kind: 'math-space',
     subject: 'math',
     skillIds: [skill.id],
-    prompt: `哪块${answer.label}能补好施工面？`,
-    speech: { text: `找到${answer.label}`, lang: 'zh-CN' },
-    choices: shuffled(SHAPES, random).map((item) => choice(item.id, item.label, item.visual)),
+    prompt: '箭头转动后与任务图方向相同的是哪一个？',
+    speech: { text: '想一想箭头转动后的方向', lang: 'zh-CN' },
+    visualPrompt: `起点 ⬆  转动 ${answer.rotation} 度`,
+    problem: { tier: 3, rule: 'mental-rotation', rotation: answer.rotation },
+    choices: shuffled(rotations, random).map((item) => choice(
+      item.id,
+      item.label,
+      item.visual,
+      { semantic: { rotation: item.rotation } },
+    )),
     answerId: answer.id,
-    success: `${answer.label}正好匹配。`,
-    hint: `答案是${answer.label}。`,
+    success: `转动后箭头${answer.label}。`,
+    hint: '用手指沿着转动方向慢慢比一遍。',
     action: 'place',
   });
 }
 
 function classificationQuestion(skill, random) {
-  const answerId = 'classify-triangle';
+  const configurations = {
+    1: {
+      rule: 'shape-odd-one-out',
+      prompt: '按形状分类，哪一块和另外两块不同？',
+      hint: '只看外轮廓，两个是圆形，一个是三角形。',
+      choices: [
+        choice('classify-red-circle', '红色圆形', '红 ○', { semantic: { shape: 'circle', color: 'red' } }),
+        choice('classify-blue-circle', '蓝色圆形', '蓝 ○', { semantic: { shape: 'circle', color: 'blue' } }),
+        choice('classify-triangle', '黄色三角形', '黄 △', { semantic: { shape: 'triangle', color: 'yellow' } }),
+      ],
+      answerId: 'classify-triangle',
+      success: '三角形和两个圆形不是同一类。',
+    },
+    2: {
+      rule: 'color-odd-one-out',
+      prompt: '按颜色分类，哪一块应该放到另一组？',
+      hint: '忽略形状，只比较三块材料的颜色。',
+      choices: [
+        choice('classify-red-circle', '红色圆形', '红 ○', { semantic: { shape: 'circle', color: 'red' } }),
+        choice('classify-red-square', '红色正方形', '红 □', { semantic: { shape: 'square', color: 'red' } }),
+        choice('classify-blue-circle', '蓝色圆形', '蓝 ○', { semantic: { shape: 'circle', color: 'blue' } }),
+      ],
+      answerId: 'classify-blue-circle',
+      success: '蓝色材料和两块红色材料不是同一组。',
+    },
+    3: {
+      rule: 'two-attribute-membership',
+      prompt: '目标组要同时满足黄色和有角，哪块材料能加入？',
+      hint: '先找黄色，再确认形状有角。',
+      choices: [
+        choice('classify-yellow-circle', '黄色圆形', '黄 ○', { semantic: { shape: 'circle', color: 'yellow', hasCorners: false } }),
+        choice('classify-blue-square', '蓝色正方形', '蓝 □', { semantic: { shape: 'square', color: 'blue', hasCorners: true } }),
+        choice('classify-yellow-triangle', '黄色三角形', '黄 △', { semantic: { shape: 'triangle', color: 'yellow', hasCorners: true } }),
+      ],
+      answerId: 'classify-yellow-triangle',
+      success: '黄色三角形同时满足两个分类条件。',
+    },
+  };
+  const config = configurations[skill.tier];
   return interaction({
     kind: 'math-classification',
     subject: 'math',
     skillIds: [skill.id],
-    prompt: '哪一块和另外两块不是同一类？',
-    speech: { text: '哪一块和另外两块不是同一类', lang: 'zh-CN' },
-    choices: shuffled([
-      choice('classify-red-circle', '红色圆形', '红 ○'),
-      choice('classify-blue-circle', '蓝色圆形', '蓝 ○'),
-      choice(answerId, '黄色三角形', '黄 △'),
-    ], random),
-    answerId,
-    success: '三角形和两个圆形不是同一类。',
-    hint: '先比较每一块的形状。',
+    prompt: config.prompt,
+    speech: { text: config.prompt, lang: 'zh-CN' },
+    problem: { tier: skill.tier, rule: config.rule },
+    choices: shuffled(config.choices, random),
+    answerId: config.answerId,
+    success: config.success,
+    hint: config.hint,
     action: 'sort',
   });
 }
 
 function measurementQuestion(skill, random) {
-  const answer = randomInteger(random, Math.max(skill.min, 2), skill.max);
-  return numericInteraction(
-    skill,
-    'math-measurement',
-    `哪根材料长 ${answer} 格？`,
-    `哪根材料长${answer}格`,
-    answer,
-    `这根材料长 ${answer} 格。`,
-    '从起点开始，一格一格量。',
-    random,
-  );
+  const available = [];
+  while (available.length < 3) {
+    const value = randomInteger(random, skill.min, skill.max);
+    if (!available.includes(value)) available.push(value);
+  }
+  const ask = random() < 0.5 ? 'longest' : 'shortest';
+  const answer = ask === 'longest' ? Math.max(...available) : Math.min(...available);
+  const sorted = [...available].sort((left, right) => left - right);
+  const scaleFor = (value) => 4 + sorted.indexOf(value) * 3;
+  return interaction({
+    kind: 'math-measurement',
+    subject: 'math',
+    skillIds: [skill.id],
+    prompt: `把材料左端对齐，找出${ask === 'longest' ? '最长' : '最短'}的一根。`,
+    speech: { text: `比较三根材料，找出${ask === 'longest' ? '最长' : '最短'}的一根`, lang: 'zh-CN' },
+    problem: { type: 'compare-length', ask, unit: '格' },
+    choices: shuffled(available.map((value, index) => choice(
+      `length-${value}`,
+      `${String.fromCharCode(65 + index)}号材料`,
+      `0├${'━'.repeat(scaleFor(value))}┤`,
+      { length: value },
+    )), random),
+    answerId: `length-${answer}`,
+    success: `这根材料量得${ask === 'longest' ? '最长' : '最短'}。`,
+    hint: '先把左端对齐，再比较右端到达的位置。',
+    action: 'lift',
+  });
 }
 
 function clockQuestion(skill, random) {
-  const dialSkill = { ...skill, min: 1, max: 12 };
-  const answer = randomInteger(random, dialSkill.min, dialSkill.max);
-  return numericInteraction(
-    dialSkill,
-    'math-clock',
-    `时针指向 ${answer}，现在是几点？`,
-    `时针指向${answer}，现在是几点`,
-    answer,
-    `现在是 ${answer} 点。`,
-    '短针指向的数字表示几点。',
-    random,
-    'signal',
-  );
+  const hour = randomInteger(random, 1, 12);
+  const minuteStep = skill.tier === 1 ? 60 : skill.tier === 2 ? 30 : 15;
+  const minutes = skill.tier === 1 ? [0] : skill.tier === 2 ? [0, 30] : [0, 15, 30, 45];
+  const minute = minutes[randomInteger(random, 0, minutes.length - 1)];
+  const candidates = [{ hour, minute }];
+  for (const offset of [minuteStep, -minuteStep, 60, -60]) {
+    const total = ((hour % 12) * 60) + minute + offset;
+    const normalized = (total + 720) % 720;
+    const candidate = { hour: Math.floor(normalized / 60) || 12, minute: normalized % 60 };
+    if (!candidates.some((item) => item.hour === candidate.hour && item.minute === candidate.minute)) candidates.push(candidate);
+    if (candidates.length === 3) break;
+  }
+  const timeId = (time) => `time-${time.hour}-${time.minute}`;
+  const clockVisual = (time) => {
+    const minuteMark = time.minute === 0 ? '12' : time.minute === 15 ? '3' : time.minute === 30 ? '6' : '9';
+    return `钟面\n短针→${time.hour}  长针→${minuteMark}`;
+  };
+  return interaction({
+    kind: 'math-clock',
+    subject: 'math',
+    skillIds: [skill.id],
+    prompt: `任务安排在 ${hour} 点${minute === 0 ? '整' : `${minute} 分`}，选择对应的钟面。`,
+    speech: { text: `任务安排在${hour}点${minute === 0 ? '整' : `${minute}分`}，选择对应的钟面`, lang: 'zh-CN' },
+    problem: { type: 'read-clock', time: { hour, minute }, minuteStep },
+    choices: shuffled(candidates.map((time, index) => choice(
+      timeId(time),
+      `${String.fromCharCode(65 + index)}号钟`,
+      clockVisual(time),
+      { time },
+    )), random),
+    answerId: timeId({ hour, minute }),
+    success: `钟面表示 ${hour} 点${minute === 0 ? '整' : `${minute} 分`}。`,
+    hint: '先看长针确定分钟，再看短针确定小时。',
+    action: 'signal',
+  });
 }
 
 function moneyQuestion(skill, random) {
-  const answer = randomInteger(random, skill.min, skill.max);
-  return numericInteraction(
-    skill,
-    'math-money',
-    `购买材料需要 ${answer} 元，应选择多少钱？`,
-    `购买材料需要${answer}元，应选择多少钱`,
-    answer,
-    `正好是 ${answer} 元。`,
-    '把钱上的数字和价格对一对。',
-    random,
-    'load',
-  );
+  const price = randomInteger(random, skill.min, skill.max);
+  const totals = numericChoices(price, skill, random).map((item) => Number(item.id.replace('number-', '')));
+  const denominations = skill.tier === 1 ? [5, 1] : skill.tier === 2 ? [10, 5, 1] : [50, 20, 10, 5, 1];
+  const coinsFor = (total) => {
+    const coins = [];
+    let remaining = total;
+    for (const denomination of denominations) {
+      while (remaining >= denomination) {
+        coins.push(denomination);
+        remaining -= denomination;
+      }
+    }
+    return coins;
+  };
+  return interaction({
+    kind: 'math-money',
+    subject: 'math',
+    skillIds: [skill.id],
+    prompt: `材料价格是 ${price} 元，哪组钱合起来刚好够？`,
+    speech: { text: `材料价格是${price}元，哪组钱合起来刚好够`, lang: 'zh-CN' },
+    visualPrompt: `价签 ${price}元`,
+    problem: { type: 'compose-money', price, currency: 'CNY' },
+    choices: shuffled(totals.map((total, index) => {
+      const coins = coinsFor(total);
+      return choice(
+        `money-${total}`,
+        `${String.fromCharCode(65 + index)}组钱币`,
+        coins.map((coin) => `${coin}元`).join(' + '),
+        { coins },
+      );
+    }), random),
+    answerId: `money-${price}`,
+    success: `这些钱合起来正好是 ${price} 元。`,
+    hint: '从最大的面额开始，把每一枚钱币合起来。',
+    action: 'load',
+  });
 }
 
 function wordProblemQuestion(skill, random) {
@@ -699,15 +1007,54 @@ function mixedDelivery(chineseItem, englishItem, mathSkill, random) {
     prompt: `把 ${amount} 块写着“${chineseItem.char}”的材料送到 ${englishLabel} 工位。`,
     speech: { text: `把${amount}块写着${chineseItem.char}的材料送到${englishLabel}工位`, lang: 'zh-CN' },
     choices: shuffled([
-      choice('delivery-correct', `${chineseItem.char} · ${amount} · ${englishMeaning}`),
-      choice('delivery-count', `${chineseItem.char} · ${wrongAmount} · ${englishMeaning}`),
-      choice('delivery-language', `${chineseItem.char} · ${amount} · 其他工位`),
+      choice('delivery-correct', `${chineseItem.char} · ${amount} · ${englishMeaning}`, undefined, {
+        skillIds: unique([chineseItem.id, englishItem.id, mathSkill.id]),
+      }),
+      choice('delivery-count', `${chineseItem.char} · ${wrongAmount} · ${englishMeaning}`, undefined, {
+        skillIds: unique([chineseItem.id, englishItem.id]),
+      }),
+      choice('delivery-language', `${chineseItem.char} · ${amount} · 其他工位`, undefined, {
+        skillIds: unique([chineseItem.id, mathSkill.id]),
+      }),
     ], random),
     answerId: 'delivery-correct',
     success: '材料全部送到正确工位。',
     hint: `先找“${chineseItem.char}”，再数 ${amount} 块，最后听 ${englishLabel}。`,
     action: 'deliver',
   });
+}
+
+function blockInteractions(primaryIds, fallbackIds, count, itemForId, singleFactory, groupFactory, random) {
+  const primary = shuffled(unique(primaryIds), random);
+  const fallback = shuffled(unique([...fallbackIds, ...primary]), random);
+  const groups = Array.from({ length: count }, () => []);
+  primary.forEach((id, index) => groups[index % count].push(id));
+  groups.forEach((group, index) => {
+    if (group.length === 0 && fallback.length > 0) group.push(fallback[index % fallback.length]);
+  });
+  return groups.map((ids) => {
+    const items = ids.map(itemForId).filter(Boolean);
+    if (items.length === 0) throw new TypeError('A subject block needs playable curriculum content');
+    return items.length === 1 ? singleFactory(items[0], random) : groupFactory(items, random);
+  });
+}
+
+function segmentForIndex(index) {
+  if (index < 2) return 'warmup';
+  if (index < 5) return 'chinese';
+  if (index < 8) return 'english';
+  if (index < 11) return 'math';
+  return 'mixed';
+}
+
+function finalizeLessonInteractions(lesson, result) {
+  const projectAction = actionByVehicle[getProject(lesson.projectId)?.vehicle] ?? 'dig';
+  return result.map((item, index) => ({
+    ...item,
+    id: `${lesson.id}-interaction-${String(index + 1).padStart(2, '0')}`,
+    segment: segmentForIndex(index),
+    action: projectAction,
+  }));
 }
 
 export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = Date.now()) {
@@ -743,34 +1090,33 @@ export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = D
     && reviewMathIds.length >= 2;
 
   if (lesson.phase !== 'review' && hasBalancedReviewHistory) {
-    const currentChineseId = shuffled(lesson.newChineseIds, random)[0];
-    const currentEnglishId = shuffled([
+    const currentChineseItems = shuffled(lesson.newChineseIds, random).map((id) => chineseById.get(id));
+    const currentEnglishItems = shuffled([
       ...lesson.newEnglishWordIds,
       ...lesson.newEnglishPatternIds,
-    ], random)[0];
-    const currentEnglishItem = englishWordById.get(currentEnglishId)
-      ?? englishPatternById.get(currentEnglishId);
+    ], random).map((id) => englishWordById.get(id) ?? englishPatternById.get(id));
+    const currentChinese = currentChineseItems.length === 1
+      ? chineseRecognition(currentChineseItems[0], random)
+      : chineseGroupMatch(currentChineseItems, random);
+    const currentEnglish = currentEnglishItems.length === 1
+      ? interactionForSkill(currentEnglishItems[0].id, random)
+      : englishGroupContext(currentEnglishItems, random);
     const result = [
       ...reviewInteractions(eligibleReviewIds.slice(0, 2), 2, random),
-      chineseRecognition(chineseById.get(currentChineseId), random),
+      currentChinese,
       ...reviewInteractions(reviewChineseIds, 2, random),
-      interactionForSkill(currentEnglishId, random),
+      currentEnglish,
       ...reviewInteractions(reviewEnglishIds, 2, random),
       mathInteraction(mathById.get(lesson.mathSkillId), random),
       ...reviewInteractions(reviewMathIds, 2, random),
       mixedDelivery(
-        chineseById.get(currentChineseId),
-        currentEnglishItem,
+        currentChineseItems[0],
+        currentEnglishItems[0],
         mathById.get(lesson.mathSkillId),
         random,
       ),
     ];
-    const projectAction = actionByVehicle[getProject(lesson.projectId)?.vehicle] ?? 'dig';
-    return result.map((item, index) => ({
-      ...item,
-      id: `${lesson.id}-interaction-${String(index + 1).padStart(2, '0')}`,
-      action: projectAction,
-    }));
+    return finalizeLessonInteractions(lesson, result);
   }
 
   const warmupIds = takePrioritized(
@@ -785,33 +1131,46 @@ export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = D
     lesson.newChineseIds,
     dueIds.filter((id) => chineseById.has(id)),
     previousIds.filter((id) => chineseById.has(id)),
-    tierChineseIds,
-  ], 3, random);
-  const chinese = chineseIds.map((id, index) => (
-    index % 2 === 0
-      ? chineseRecognition(chineseById.get(id), random)
-      : chineseWordMatch(chineseById.get(id), random)
-  ));
+    lesson.newChineseIds.length === 0 ? tierChineseIds : [],
+  ], Math.max(3, lesson.newChineseIds.length), random);
+  const chinese = blockInteractions(
+    lesson.newChineseIds.length > 0 ? lesson.newChineseIds : chineseIds,
+    chineseIds,
+    3,
+    (id) => chineseById.get(id),
+    chineseRecognition,
+    chineseGroupMatch,
+    random,
+  );
 
   const wordIds = takePrioritized([
     lesson.newEnglishWordIds,
     dueIds.filter((id) => englishWordById.has(id)),
     previousIds.filter((id) => englishWordById.has(id)),
-    tierWordIds,
-  ], 2, random);
+    lesson.newEnglishWordIds.length === 0 ? tierWordIds : [],
+  ], 3, random);
   const patternIds = takePrioritized([
     lesson.newEnglishPatternIds,
     dueIds.filter((id) => englishPatternById.has(id)),
     previousIds.filter((id) => englishPatternById.has(id)),
-    tierPatternIds,
-  ], 1, random);
-  const english = shuffled([
-    ...wordIds.map((id) => englishListen(englishWordById.get(id), random)),
-    ...patternIds.map((id) => englishPatternContext(englishPatternById.get(id), random)),
-  ], random);
+    lesson.newEnglishPatternIds.length === 0 ? tierPatternIds : [],
+  ], 3, random);
+  const assignedEnglishIds = [
+    ...lesson.newEnglishWordIds,
+    ...lesson.newEnglishPatternIds,
+  ];
+  const englishFallbackIds = unique([...wordIds, ...patternIds]);
+  const english = blockInteractions(
+    assignedEnglishIds.length > 0 ? assignedEnglishIds : englishFallbackIds,
+    englishFallbackIds,
+    3,
+    (id) => englishWordById.get(id) ?? englishPatternById.get(id),
+    (item, rng) => (englishWordById.has(item.id) ? englishListen(item, rng) : englishPatternContext(item, rng)),
+    englishGroupContext,
+    random,
+  );
 
   const mathSkill = mathById.get(lesson.mathSkillId);
-  const projectAction = actionByVehicle[getProject(lesson.projectId)?.vehicle] ?? 'dig';
   const math = Array.from({ length: 3 }, () => mathInteraction(mathSkill, random));
   const mixedChinese = chineseById.get(chineseIds[0]);
   const mixedEnglish = englishWordById.get(wordIds[0]) ?? englishPatternById.get(patternIds[0]);
@@ -823,9 +1182,5 @@ export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = D
     mixedDelivery(mixedChinese, mixedEnglish, mathSkill, random),
   ];
 
-  return result.map((item, index) => ({
-    ...item,
-    id: `${lesson.id}-interaction-${String(index + 1).padStart(2, '0')}`,
-    action: projectAction,
-  }));
+  return finalizeLessonInteractions(lesson, result);
 }

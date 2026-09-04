@@ -78,6 +78,30 @@ test('course rows derive mastered and review-due states from current skill evide
   assert.equal(buildCourseRows([lesson], progress, dueAt)[0].status, 'reviewDue');
 });
 
+test('recent repeated hints make a completed lesson review due at exact boundaries', () => {
+  const lesson = LESSONS[0];
+  const now = DAY * 20;
+  const rowStatus = (recentHintTimestamps, hintCount = recentHintTimestamps.length) => (
+    buildCourseRows([lesson], {
+      lessons: {
+        [lesson.id]: lessonRecord('practiced', {
+          viewedAt: 1000,
+          completedCount: 1,
+          lastCompletedAt: now,
+          hintCount,
+          recentHintTimestamps,
+        }),
+      },
+      skills: {},
+    }, now)[0].status
+  );
+
+  assert.equal(rowStatus([now - (7 * DAY), now - (7 * DAY)]), 'reviewDue');
+  assert.equal(rowStatus([now - (7 * DAY)]), 'practiced');
+  assert.equal(rowStatus([now - (7 * DAY) - 1, now - (7 * DAY) - 1]), 'practiced');
+  assert.equal(rowStatus([], 99), 'practiced', 'lifetime hints alone are not recent evidence');
+});
+
 test('stored mastery labels cannot bypass current lesson and skill evidence', () => {
   const lesson = LESSONS[0];
   const completed = {

@@ -75,9 +75,27 @@ test('completed projects become immutable visible scene upgrades', () => {
 
   completedProjectIds.push('project-003');
   assert.deepEqual(scene.completedProjectIds, ['project-001', 'project-002']);
-  assert.deepEqual(scene.visibleUpgradeIds, ['sunny-town-upgrade-1']);
+  assert.deepEqual(scene.visibleUpgradeIds, [
+    'sunny-town-upgrade-1',
+    'sunny-town-upgrade-2',
+  ]);
   assert.equal(Object.isFrozen(scene), true);
   assert.equal(Object.isFrozen(scene.completedProjectIds), true);
+});
+
+test('noncontiguous project completions reveal their exact persistent regional upgrades', () => {
+  const scene = getSceneState(
+    'forest-valley',
+    17,
+    { action: 'load' },
+    ['project-016', 'project-020', 'project-030', 'project-005'],
+  );
+
+  assert.deepEqual(scene.visibleUpgradeIds, [
+    'forest-valley-upgrade-1',
+    'forest-valley-upgrade-5',
+    'forest-valley-upgrade-15',
+  ]);
 });
 
 test('curriculum vehicle aliases resolve to canonical vehicle symbols', () => {
@@ -139,10 +157,15 @@ test('regional SVG contains layered scenes and progressive outcomes', async () =
   const sceneIds = idsFrom(scenes);
   const expectedSceneIds = REGIONS.flatMap((region) => [
     region.id,
-    ...Array.from({ length: 5 }, (_, index) => `${region.id}-upgrade-${index + 1}`),
+    ...Array.from({ length: 15 }, (_, index) => `${region.id}-upgrade-${index + 1}`),
   ]);
 
   assert.deepEqual(sceneIds, new Set(expectedSceneIds));
+  assert.equal(
+    symbolIdsFrom(scenes).filter((id) => id.includes('-upgrade-')).length,
+    90,
+    'every one of the 90 projects needs a persistent scene outcome',
+  );
   for (const region of REGIONS) {
     assert.equal(sceneIds.has(region.id), true, `missing region ${region.id}`);
     const markup = symbolMarkup(scenes, region.id);
@@ -150,7 +173,7 @@ test('regional SVG contains layered scenes and progressive outcomes', async () =
     for (const className of ['background', 'ground', 'road']) {
       assert.match(markup, new RegExp(`class="[^"]*\\b${className}\\b`));
     }
-    for (let upgrade = 1; upgrade <= 5; upgrade += 1) {
+    for (let upgrade = 1; upgrade <= 15; upgrade += 1) {
       const upgradeId = `${region.id}-upgrade-${upgrade}`;
       assert.equal(sceneIds.has(upgradeId), true, `missing upgrade ${upgradeId}`);
       assert.match(symbolMarkup(scenes, upgradeId), /class="[^"]*\bupgrade\b/);

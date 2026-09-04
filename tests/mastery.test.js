@@ -15,12 +15,66 @@ test('viewing content does not create mastery', () => {
   assert.equal(skillStatus(record, 1000), 'unseen');
 });
 
-test('mastery needs three independent lessons and a spaced review', () => {
+test('mastery needs three independent lessons and a successful due review', () => {
   let record = createSkillRecord();
-  record = recordSkillAttempt(record, { correct: true, assistance: 0, lessonId: 'lesson-001' }, 1000);
-  record = recordSkillAttempt(record, { correct: true, assistance: 0, lessonId: 'lesson-004' }, 400000000);
-  record = recordSkillAttempt(record, { correct: true, assistance: 0, lessonId: 'lesson-010' }, 1000000000);
-  assert.equal(skillStatus(record, 1000000000), 'mastered');
+  record = recordSkillAttempt(record, {
+    correct: true, assistance: 0, lessonId: 'lesson-001', eventId: 'lesson-001:1', lessonCount: 1,
+  }, 1000);
+  record = recordSkillAttempt(record, {
+    correct: true, assistance: 0, lessonId: 'lesson-004', eventId: 'lesson-004:1', lessonCount: 2,
+  }, 1000 + DAY);
+  record = recordSkillAttempt(record, {
+    correct: true, assistance: 0, lessonId: 'lesson-010', eventId: 'lesson-010:1', lessonCount: 3,
+  }, 1000 + (2 * DAY));
+  assert.deepEqual(record.successfulDueReviewEventIds, ['lesson-004:1']);
+  assert.equal(skillStatus(record, 1000 + (2 * DAY), 3), 'mastered');
+});
+
+test('three cross-lesson successes without a due review remain in progress', () => {
+  let record = createSkillRecord();
+  for (const [index, lessonId] of ['lesson-001', 'lesson-002', 'lesson-003'].entries()) {
+    record = recordSkillAttempt(record, {
+      correct: true,
+      assistance: 0,
+      lessonId,
+      eventId: `${lessonId}:1`,
+    }, 1000);
+  }
+
+  assert.deepEqual(record.successfulDueReviewEventIds, []);
+  assert.equal(skillStatus(record, 1000, 3), 'practicing');
+});
+
+test('multiple correct interactions in one completion advance review only once', () => {
+  const base = createSkillRecord();
+  const first = recordSkillAttempt(base, {
+    correct: true, assistance: 0, lessonId: 'lesson-001', eventId: 'lesson-001:1', lessonCount: 1,
+  }, 1000);
+  const duplicate = recordSkillAttempt(first, {
+    correct: true, assistance: 0, lessonId: 'lesson-001', eventId: 'lesson-001:1', lessonCount: 1,
+  }, 2000);
+
+  assert.equal(duplicate.exposures, 2);
+  assert.equal(duplicate.independentCorrect, 1);
+  assert.deepEqual(duplicate.successfulEventIds, ['lesson-001:1']);
+  assert.equal(duplicate.nextReviewAt, first.nextReviewAt);
+  assert.equal(duplicate.nextReviewLessonCount, first.nextReviewLessonCount);
+});
+
+test('lesson-count fallback makes a review due and records its successful evidence', () => {
+  let record = recordSkillAttempt(createSkillRecord(), {
+    correct: true, assistance: 0, lessonId: 'lesson-001', eventId: 'lesson-001:1', lessonCount: 4,
+  }, 1000);
+  assert.equal(record.nextReviewLessonCount, 5);
+  assert.equal(skillStatus(record, 2000, 4), 'practicing');
+  assert.equal(skillStatus(record, 2000, 5), 'reviewDue');
+
+  record = recordSkillAttempt(record, {
+    correct: true, assistance: 0, lessonId: 'lesson-005', eventId: 'lesson-005:1', lessonCount: 5,
+  }, 2000);
+  assert.deepEqual(record.successfulDueReviewEventIds, ['lesson-005:1']);
+  assert.equal(record.nextReviewLessonCount, 8);
+  assert.equal(record.nextReviewAt, 2000 + (3 * DAY));
 });
 
 test('a later incorrect attempt cannot create the required independent spacing', () => {
@@ -64,8 +118,12 @@ test('due and assisted skills sort ahead of mastered maintenance', () => {
 
 test('independent successes use increasing review intervals without mutating the source record', () => {
   const base = createSkillRecord();
-  const first = recordSkillAttempt(base, { correct: true, assistance: 0, lessonId: 'lesson-001' }, 1000);
-  const second = recordSkillAttempt(first, { correct: true, assistance: 0, lessonId: 'lesson-002' }, 2000);
+  const first = recordSkillAttempt(base, {
+    correct: true, assistance: 0, lessonId: 'lesson-001', eventId: 'lesson-001:1', lessonCount: 1,
+  }, 1000);
+  const second = recordSkillAttempt(first, {
+    correct: true, assistance: 0, lessonId: 'lesson-002', eventId: 'lesson-002:1', lessonCount: 2,
+  }, 2000);
 
   assert.equal(first.nextReviewAt, 1000 + DAY);
   assert.equal(second.nextReviewAt, 2000 + (3 * DAY));

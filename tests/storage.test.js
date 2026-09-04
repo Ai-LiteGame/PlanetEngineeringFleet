@@ -23,6 +23,7 @@ import {
   saveProgress,
 } from '../src/storage.js';
 import { updateMastery } from '../src/game-core.js';
+import { createSkillRecord } from '../src/mastery.js';
 
 function memoryStorage() {
   const values = new Map();
@@ -64,6 +65,7 @@ test('version two progress round trips while de-duplicating honor IDs', () => {
   const progress = createProgressV2();
   progress.lessons['lesson-001'] = {
     status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 2000, hintCount: 4,
+    recentHintTimestamps: [1500, 2000],
   };
   progress.honors = ['badge:bridge', 'badge:bridge', 'badge:crane'];
   progress.completionIds = ['lesson-001:1', 'lesson-001:1'];
@@ -80,7 +82,47 @@ test('version two progress round trips while de-duplicating honor IDs', () => {
   assert.deepEqual(restored.completionIds, ['lesson-001:1']);
   assert.deepEqual(restored.lastCompletion, progress.lastCompletion);
   assert.equal(restored.lessons['lesson-001'].hintCount, 4);
+  assert.deepEqual(restored.lessons['lesson-001'].recentHintTimestamps, [1500, 2000]);
   assert.equal(restored.storageAvailable, true);
+});
+
+test('version two skill scheduling fields round trip and old records receive compatible defaults', () => {
+  const scheduled = createSkillRecord();
+  scheduled.exposures = 3;
+  scheduled.independentCorrect = 2;
+  scheduled.independentLessonIds = ['lesson-001', 'lesson-004'];
+  scheduled.successfulEventIds = ['lesson-001:1', 'lesson-004:1'];
+  scheduled.successfulDueReviewEventIds = ['lesson-004:1'];
+  scheduled.firstIndependentAt = 1000;
+  scheduled.firstIndependentLessonCount = 1;
+  scheduled.lastSeenAt = 1000 + 86400000;
+  scheduled.lastSeenLessonCount = 4;
+  scheduled.nextReviewAt = 1000 + (4 * 86400000);
+  scheduled.nextReviewLessonCount = 7;
+  scheduled.status = 'practicing';
+  const progress = createProgressV2({ skills: { 'zh-001': scheduled } });
+
+  assert.deepEqual(parseProgress(JSON.stringify(progress)).skills['zh-001'], scheduled);
+
+  const oldRecord = {
+    exposures: 1,
+    independentCorrect: 1,
+    assistedCorrect: 0,
+    independentLessonIds: ['lesson-001'],
+    firstIndependentAt: 1000,
+    lastSeenAt: 1000,
+    nextReviewAt: 1000 + 86400000,
+    status: 'practicing',
+  };
+  const oldProgress = createProgressV2({ skills: { 'zh-001': oldRecord } });
+  assert.deepEqual(parseProgress(JSON.stringify(oldProgress)).skills['zh-001'], {
+    ...oldRecord,
+    successfulEventIds: ['lesson-001:1'],
+    successfulDueReviewEventIds: [],
+    firstIndependentLessonCount: null,
+    lastSeenLessonCount: null,
+    nextReviewLessonCount: null,
+  });
 });
 
 test('old version two lesson records load with a zero hint count', () => {
@@ -93,6 +135,10 @@ test('old version two lesson records load with a zero hint count', () => {
   });
 
   assert.equal(parseProgress(JSON.stringify(progress)).lessons['lesson-001'].hintCount, 0);
+  assert.deepEqual(
+    parseProgress(JSON.stringify(progress)).lessons['lesson-001'].recentHintTimestamps,
+    [],
+  );
 });
 
 test('invalid lesson hint counts fall back to fresh progress', () => {
@@ -101,6 +147,24 @@ test('invalid lesson hint counts fall back to fresh progress', () => {
       lessons: {
         'lesson-001': {
           status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 2000, hintCount,
+        },
+      },
+    });
+    assert.deepEqual(parseProgress(JSON.stringify(malformed)), createProgressV2());
+  }
+});
+
+test('invalid recent lesson hint timestamps fall back to fresh progress', () => {
+  for (const recentHintTimestamps of [[-1], [1.5], ['2000'], [1, 2, 3]]) {
+    const malformed = createProgressV2({
+      lessons: {
+        'lesson-001': {
+          status: 'practiced',
+          viewedAt: 1000,
+          completedCount: 1,
+          lastCompletedAt: 2000,
+          hintCount: 2,
+          recentHintTimestamps,
         },
       },
     });
@@ -225,11 +289,13 @@ test('lesson snapshot round trips sanitized stable state including prior answers
   }];
 
   assert.equal(saveActiveLesson(storage, {
-    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answers, animationFrame: 999,
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answers, answered: true,
+    animationFrame: 999,
   }), true);
   assert.equal(storage.getItem(ACTIVE_KEY).includes('animationFrame'), false);
   assert.deepEqual(loadActiveLesson(storage), {
     lessonId: 'lesson-014', interactionIndex: 4, seed: 17,
+    answered: true,
     answers: [{
       interactionId: 'lesson-014:chinese:1',
       subject: 'chinese',
@@ -250,7 +316,7 @@ test('old active lesson snapshots remain loadable with an empty answer history',
   }));
 
   assert.deepEqual(loadActiveLesson(storage), {
-    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answers: [],
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answered: false, answers: [],
   });
 });
 
@@ -258,6 +324,10 @@ test('invalid active lesson snapshots are ignored', () => {
   const storage = memoryStorage();
   storage.setItem(ACTIVE_KEY, JSON.stringify({ lessonId: 'lesson-014', interactionIndex: -1, seed: 4 }));
 
+  assert.equal(loadActiveLesson(storage), null);
+  storage.setItem(ACTIVE_KEY, JSON.stringify({
+    lessonId: 'lesson-014', interactionIndex: 0, seed: 4, answered: 'yes',
+  }));
   assert.equal(loadActiveLesson(storage), null);
 });
 
@@ -293,4 +363,5 @@ test('watching a briefing records viewed without recording practice', () => {
   assert.equal(progress.lessons['lesson-001'].completedCount, 0);
   assert.equal(progress.lessons['lesson-001'].lastCompletedAt, null);
   assert.equal(progress.lessons['lesson-001'].hintCount, 0);
+  assert.deepEqual(progress.lessons['lesson-001'].recentHintTimestamps, []);
 });

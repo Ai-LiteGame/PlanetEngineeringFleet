@@ -27,10 +27,10 @@ function uniqueVehicleIds(values) {
   return [...new Set((Array.isArray(values) ? values : []).map(canonicalVehicleId))];
 }
 
-function renderFleet(vehicleIds) {
+function renderFleet(vehicleIds, vehicleUpgrades) {
   return vehicleIds.map((vehicleId) => `
     <li class="garage-vehicle">
-      ${renderVehicle(vehicleId, 'garage-vehicle-art')}
+      ${renderVehicle(vehicleId, 'garage-vehicle-art', vehicleLabel(vehicleId), vehicleUpgrades)}
       <strong>${escapeHtml(vehicleLabel(vehicleId))}</strong>
     </li>`).join('');
 }
@@ -89,7 +89,7 @@ export function renderGarage(model = {}) {
         </div>
         <section class="garage-section" aria-labelledby="fleet-title">
           <div class="garage-section-heading"><h2 id="fleet-title">工程车队</h2><span>${vehicleIds.length} 辆车型</span></div>
-          <ul class="garage-fleet">${renderFleet(vehicleIds)}</ul>
+          <ul class="garage-fleet">${renderFleet(vehicleIds, model.vehicleUpgrades)}</ul>
           <div class="garage-paints" aria-label="车队颜色">
             ${PAINT_SWATCHES.map((swatch) => `<span class="garage-swatch" role="img" aria-label="${escapeHtml(swatch.label)}" title="${escapeHtml(swatch.label)}" style="--swatch: ${swatch.color}"></span>`).join('')}
           </div>

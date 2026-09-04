@@ -77,6 +77,17 @@ test('Chinese items use specific word associations and varied matching contexts'
   });
 });
 
+test('all Chinese examples are unique child-facing contexts without literacy or writing boilerplate', () => {
+  const metaBoilerplate = /(课本|词语卡|词卡|作业本|笔记本|写字课|朗读|复习|练习|读给|圈出|展示|解释.*意思|我会写好)/;
+  assert.equal(new Set(CHINESE_ITEMS.map((item) => item.example)).size, 700);
+  for (const item of CHINESE_ITEMS) {
+    const surroundingCopy = item.example.replaceAll(item.word, '');
+    assert.equal(metaBoilerplate.test(surroundingCopy), false, item.id);
+    assert.equal(/[“”]/.test(item.example), false, item.id);
+    assert.equal(item.example.length >= item.word.length + 3, true, item.id);
+  }
+});
+
 test('Chinese associations avoid audited formal, incomplete, and weak terms', () => {
   const disallowedWords = new Set([
     '目的', '少数', '甜果', '住家', '会面', '铜铁', '正方', '长颈', '推土',

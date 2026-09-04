@@ -40,18 +40,11 @@ const projectForOrdinal = (regionId, projectOrdinal) => {
 };
 
 const visibleUpgrades = (regionId, completedProjectIds) => {
-  const regionalProjectIds = new Set(
-    projectsByRegion.get(regionId).map((project) => project.id),
-  );
-  const completedCount = new Set(
-    completedProjectIds.filter((projectId) => regionalProjectIds.has(projectId)),
-  ).size;
-  const upgradeCount = Math.min(5, Math.ceil(completedCount / 3));
-
-  return Object.freeze(Array.from(
-    { length: upgradeCount },
-    (_, index) => `${regionId}-upgrade-${index + 1}`,
-  ));
+  const completed = new Set(completedProjectIds);
+  return Object.freeze(projectsByRegion.get(regionId)
+    .map((project, index) => ({ project, localOrdinal: index + 1 }))
+    .filter(({ project }) => completed.has(project.id))
+    .map(({ localOrdinal }) => `${regionId}-upgrade-${localOrdinal}`));
 };
 
 export function getSceneState(regionId, projectOrdinal, interaction = {}, completedProjectIds = []) {

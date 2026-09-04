@@ -4,6 +4,7 @@ export const STORAGE_KEY = 'space-construction-fleet.progress.v2';
 export const ACTIVE_KEY = 'space-construction-fleet.active.v2';
 export const LEGACY_STORAGE_KEY = 'space-construction-fleet.progress.v1';
 export const LEGACY_ACTIVE_KEY = 'space-construction-fleet.active.v1';
+export const RECENT_HINT_WINDOW_MS = 7 * 86400000;
 
 const LESSON_STATUSES = new Set(['notStarted', 'viewed', 'practiced', 'reviewDue', 'mastered']);
 const SKILL_STATUSES = new Set(['unseen', 'practicing', 'reviewDue', 'mastered']);
@@ -45,6 +46,7 @@ export const DEFAULT_PROGRESS = Object.freeze({
   lastCompletion: null,
   honors: Object.freeze([]),
   vehicleUpgrades: Object.freeze([]),
+  placement: null,
   settings: Object.freeze({ soundEnabled: true }),
   storageAvailable: true,
 });
@@ -88,7 +90,15 @@ function isLessonRecord(value) {
     && isNullableTimestamp(value.viewedAt)
     && isNonNegativeInteger(value.completedCount)
     && isNullableTimestamp(value.lastCompletedAt)
-    && (!Object.hasOwn(value, 'hintCount') || isNonNegativeInteger(value.hintCount));
+    && (!Object.hasOwn(value, 'hintCount') || isNonNegativeInteger(value.hintCount))
+    && (!Object.hasOwn(value, 'recentHintTimestamps') || (
+      Array.isArray(value.recentHintTimestamps)
+      && value.recentHintTimestamps.length <= 2
+      && value.recentHintTimestamps.every(isNonNegativeInteger)
+      && value.recentHintTimestamps.every((timestamp, index, timestamps) => (
+        index === 0 || timestamp >= timestamps[index - 1]
+      ))
+    ));
 }
 
 function isSkillRecord(value) {
@@ -98,9 +108,20 @@ function isSkillRecord(value) {
     && isNonNegativeInteger(value.assistedCorrect)
     && Array.isArray(value.independentLessonIds)
     && value.independentLessonIds.every(isLessonId)
+    && (!Object.hasOwn(value, 'successfulEventIds')
+      || (isStringArray(value.successfulEventIds) && value.successfulEventIds.every(isCompletionId)))
+    && (!Object.hasOwn(value, 'successfulDueReviewEventIds')
+      || (isStringArray(value.successfulDueReviewEventIds)
+        && value.successfulDueReviewEventIds.every(isCompletionId)))
     && isNullableTimestamp(value.firstIndependentAt)
+    && (!Object.hasOwn(value, 'firstIndependentLessonCount')
+      || isNullableTimestamp(value.firstIndependentLessonCount))
     && isNullableTimestamp(value.lastSeenAt)
+    && (!Object.hasOwn(value, 'lastSeenLessonCount')
+      || isNullableTimestamp(value.lastSeenLessonCount))
     && isNullableTimestamp(value.nextReviewAt)
+    && (!Object.hasOwn(value, 'nextReviewLessonCount')
+      || isNullableTimestamp(value.nextReviewLessonCount))
     && SKILL_STATUSES.has(value.status);
 }
 
@@ -119,6 +140,7 @@ function cloneLessonRecord(record) {
     completedCount: record.completedCount,
     lastCompletedAt: record.lastCompletedAt,
     hintCount: record.hintCount ?? 0,
+    recentHintTimestamps: [...(record.recentHintTimestamps ?? [])],
   };
 }
 
@@ -128,9 +150,15 @@ function cloneSkillRecord(record) {
     independentCorrect: record.independentCorrect,
     assistedCorrect: record.assistedCorrect,
     independentLessonIds: [...record.independentLessonIds],
+    successfulEventIds: [...(record.successfulEventIds
+      ?? record.independentLessonIds.map((lessonId) => `${lessonId}:1`))],
+    successfulDueReviewEventIds: [...(record.successfulDueReviewEventIds ?? [])],
     firstIndependentAt: record.firstIndependentAt,
+    firstIndependentLessonCount: record.firstIndependentLessonCount ?? null,
     lastSeenAt: record.lastSeenAt,
+    lastSeenLessonCount: record.lastSeenLessonCount ?? null,
     nextReviewAt: record.nextReviewAt,
+    nextReviewLessonCount: record.nextReviewLessonCount ?? null,
     status: record.status,
   };
 }
@@ -145,6 +173,15 @@ function cloneCompletionMetadata(metadata) {
   };
 }
 
+function isPlacementRecord(value) {
+  return value === null || (
+    isPlainObject(value)
+    && value.checkpointId === 'tier-1-foundation'
+    && new Set(['advanced', 'foundationRoute']).has(value.status)
+    && isNonNegativeInteger(value.completedAt)
+  );
+}
+
 export function createProgressV2(overrides = {}) {
   return {
     version: 2,
@@ -155,6 +192,7 @@ export function createProgressV2(overrides = {}) {
     lastCompletion: null,
     honors: [],
     vehicleUpgrades: [],
+    placement: null,
     settings: { soundEnabled: true },
     storageAvailable: true,
     ...overrides,
@@ -164,6 +202,7 @@ export function createProgressV2(overrides = {}) {
 function normalizeV2(value) {
   const completionIds = value?.completionIds ?? [];
   const lastCompletion = value?.lastCompletion ?? null;
+  const placement = value?.placement ?? null;
   if (!isPlainObject(value)
     || value.version !== 2
     || !(value.currentLessonId === null || isLessonId(value.currentLessonId))
@@ -172,6 +211,7 @@ function normalizeV2(value) {
     || !Array.isArray(completionIds)
     || completionIds.some((id) => !isCompletionId(id))
     || !isCompletionMetadata(lastCompletion)
+    || !isPlacementRecord(placement)
     || !isStringArray(value.honors)
     || !isStringArray(value.vehicleUpgrades)
     || !isPlainObject(value.settings)
@@ -191,6 +231,7 @@ function normalizeV2(value) {
     lastCompletion: cloneCompletionMetadata(lastCompletion),
     honors: unique(value.honors),
     vehicleUpgrades: [...value.vehicleUpgrades],
+    placement: placement === null ? null : { ...placement },
     settings: { soundEnabled: value.settings.soundEnabled },
     storageAvailable: value.storageAvailable,
   };
@@ -250,8 +291,13 @@ function legacySkillToV2(record) {
   migrated.independentCorrect = independentCount;
   migrated.assistedCorrect = record.helpStreak;
   migrated.independentLessonIds = independentLessonIds;
+  migrated.successfulEventIds = independentLessonIds.map((id) => `${id}:1`);
+  migrated.successfulDueReviewEventIds = completed ? ['lesson-003:1'] : [];
   migrated.firstIndependentAt = independentLessonIds.length > 0 ? 0 : null;
+  migrated.firstIndependentLessonCount = independentLessonIds.length > 0 ? 1 : null;
   migrated.lastSeenAt = completed ? 86400000 : (independentLessonIds.length > 0 ? 0 : null);
+  migrated.lastSeenLessonCount = independentLessonIds.length > 0 ? independentLessonIds.length : null;
+  migrated.nextReviewLessonCount = independentLessonIds.length > 0 ? independentLessonIds.length + 1 : null;
   migrated.status = completed ? 'mastered' : (migrated.exposures > 0 ? 'practicing' : 'unseen');
   return migrated;
 }
@@ -270,8 +316,29 @@ function mergeSkillRecords(left, right) {
     independentCorrect: left.independentCorrect + right.independentCorrect,
     assistedCorrect: left.assistedCorrect + right.assistedCorrect,
     independentLessonIds: unique([...left.independentLessonIds, ...right.independentLessonIds]),
+    successfulEventIds: unique([
+      ...(left.successfulEventIds ?? []),
+      ...(right.successfulEventIds ?? []),
+    ]),
+    successfulDueReviewEventIds: unique([
+      ...(left.successfulDueReviewEventIds ?? []),
+      ...(right.successfulDueReviewEventIds ?? []),
+    ]),
     firstIndependentAt,
+    firstIndependentLessonCount: [left.firstIndependentLessonCount, right.firstIndependentLessonCount]
+      .filter((value) => value !== null && value !== undefined)
+      .sort((a, b) => a - b)[0] ?? null,
     lastSeenAt,
+    lastSeenLessonCount: Math.max(
+      left.lastSeenLessonCount ?? -1,
+      right.lastSeenLessonCount ?? -1,
+    ) < 0 ? null : Math.max(left.lastSeenLessonCount ?? -1, right.lastSeenLessonCount ?? -1),
+    nextReviewAt: [left.nextReviewAt, right.nextReviewAt]
+      .filter((value) => value !== null)
+      .sort((a, b) => a - b)[0] ?? null,
+    nextReviewLessonCount: [left.nextReviewLessonCount, right.nextReviewLessonCount]
+      .filter((value) => value !== null && value !== undefined)
+      .sort((a, b) => a - b)[0] ?? null,
     status: mastered ? 'mastered' : 'practicing',
   };
 }
@@ -291,7 +358,12 @@ export function migrateProgress(raw) {
     for (let index = 1; index <= Math.min(value.sessionsCompleted, 270); index += 1) {
       const id = `lesson-${String(index).padStart(3, '0')}`;
       progress.lessons[id] = {
-        status: 'practiced', viewedAt: null, completedCount: 1, lastCompletedAt: null, hintCount: 0,
+        status: 'practiced',
+        viewedAt: null,
+        completedCount: 1,
+        lastCompletedAt: null,
+        hintCount: 0,
+        recentHintTimestamps: [],
       };
     }
 
@@ -406,7 +478,12 @@ export function recordLessonViewed(progress, lessonId, now) {
   if (!isLessonId(lessonId) || !isNonNegativeInteger(now)) return progress;
   const base = normalizeV2(progress) ?? createProgressV2();
   const previous = base.lessons[lessonId] ?? {
-    status: 'notStarted', viewedAt: null, completedCount: 0, lastCompletedAt: null, hintCount: 0,
+    status: 'notStarted',
+    viewedAt: null,
+    completedCount: 0,
+    lastCompletedAt: null,
+    hintCount: 0,
+    recentHintTimestamps: [],
   };
   const status = previous.status === 'notStarted' ? 'viewed' : previous.status;
   return {
@@ -448,15 +525,19 @@ function normalizeActiveLessonSnapshot(value) {
     || !isLessonId(value.lessonId)
     || !isNonNegativeInteger(value.interactionIndex)
     || !isNonNegativeInteger(value.seed)
-    || !(value.answers === undefined || Array.isArray(value.answers))) {
+    || !(value.answers === undefined || Array.isArray(value.answers))
+    || !(value.answered === undefined || typeof value.answered === 'boolean')) {
     return null;
   }
   const answers = (value.answers ?? []).map(normalizeLessonAnswer);
-  if (answers.some((answer) => answer === null)) return null;
+  if (answers.some((answer) => answer === null) || (value.answered === true && answers.length === 0)) {
+    return null;
+  }
   return {
     lessonId: value.lessonId,
     interactionIndex: value.interactionIndex,
     seed: value.seed,
+    answered: value.answered === true,
     answers,
   };
 }

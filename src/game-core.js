@@ -3,7 +3,13 @@ import { getLesson, LESSONS } from './curriculum/index.js';
 import { awardLessonCompletion } from './honors.js';
 import { buildLessonInteractions } from './question-factories.js';
 import { createSkillRecord, recordSkillAttempt } from './mastery.js';
-import { clearActiveLesson, recordLessonViewed, saveProgress } from './storage.js';
+import {
+  RECENT_HINT_WINDOW_MS,
+  clearActiveLesson,
+  recordLessonViewed,
+  saveActiveLesson,
+  saveProgress,
+} from './storage.js';
 
 export const STAGES = ['chinese', 'english', 'math', 'mixed'];
 
@@ -229,6 +235,22 @@ function isLessonState(state) {
     && Array.isArray(state.interactions);
 }
 
+export function synchronizeSoundPreference(progress, lessonState, soundEnabled) {
+  if (typeof soundEnabled !== 'boolean') {
+    return { progress, lessonState };
+  }
+  const nextProgress = {
+    ...progress,
+    settings: { ...progress?.settings, soundEnabled },
+  };
+  return {
+    progress: nextProgress,
+    lessonState: isLessonState(lessonState)
+      ? { ...lessonState, progress: nextProgress }
+      : lessonState,
+  };
+}
+
 function enterPlaying(state) {
   if (state.screen !== 'briefing') return state;
   return {
@@ -276,6 +298,12 @@ export function restoreLessonState(snapshot, progress) {
     throw new RangeError('Invalid interaction index');
   }
   const answers = Array.isArray(snapshot.answers) ? snapshot.answers : [];
+  const answered = snapshot.answered === true;
+  const current = restored.interactions[snapshot.interactionIndex];
+  const currentAnswer = answered ? answers.at(-1) : null;
+  if (answered && currentAnswer?.interactionId !== current.id) {
+    throw new RangeError('Answered snapshot does not match the current interaction');
+  }
   return {
     ...restored,
     interactionIndex: snapshot.interactionIndex,
@@ -283,6 +311,11 @@ export function restoreLessonState(snapshot, progress) {
       ...answer,
       skillIds: [...answer.skillIds],
     })),
+    attempts: currentAnswer?.attempts ?? 0,
+    hintLevel: currentAnswer?.assistance ?? 0,
+    demonstratedAnswerId: currentAnswer?.assistance === 3 ? current.answerId : null,
+    answered,
+    locked: answered,
   };
 }
 
@@ -368,6 +401,25 @@ export function submitAnswer(state, answerId) {
     : submitLegacyAnswer(state, answerId);
 }
 
+export function saveLessonStateSnapshot(state, storage) {
+  if (!isLessonState(state)) return false;
+  return saveActiveLesson(storage, {
+    lessonId: state.lessonId,
+    interactionIndex: state.interactionIndex,
+    seed: state.seed,
+    answered: state.answered,
+    answers: state.answers,
+  });
+}
+
+export function submitAnswerAndPersist(state, answerId, storage) {
+  const result = submitAnswer(state, answerId);
+  if (isLessonState(result.state) && result.correct && result.completedQuestion) {
+    saveLessonStateSnapshot(result.state, storage);
+  }
+  return result;
+}
+
 export function advance(state) {
   return isLessonState(state) ? advanceLesson(state) : advanceLegacy(state);
 }
@@ -395,9 +447,17 @@ export function completeLesson(state, progress, now = Date.now()) {
   const viewedProgress = recordLessonViewed(progress, state.lessonId, state.startedAt);
   const previous = viewedProgress.lessons[state.lessonId];
   const skills = { ...viewedProgress.skills };
-  const hintCount = state.answers.reduce((total, answer) => (
+  const lessonCount = new Set([...viewedProgress.completionIds, state.completionId]).size;
+  const currentHintCount = state.answers.reduce((total, answer) => (
     total + (Number.isInteger(answer.attempts) && answer.attempts > 0 ? answer.attempts : 0)
-  ), previous.hintCount);
+  ), 0);
+  const hintCount = previous.hintCount + currentHintCount;
+  const recentHintTimestamps = [
+    ...previous.recentHintTimestamps.filter((timestamp) => (
+      timestamp <= now && timestamp >= now - RECENT_HINT_WINDOW_MS
+    )),
+    ...Array(Math.min(currentHintCount, 2)).fill(now),
+  ].slice(-2);
   for (const answer of state.answers) {
     for (const skillId of answer.skillIds) {
       skills[skillId] = recordSkillAttempt(
@@ -406,6 +466,8 @@ export function completeLesson(state, progress, now = Date.now()) {
           correct: answer.correct,
           assistance: answer.assistance,
           lessonId: state.lessonId,
+          eventId: state.completionId,
+          lessonCount,
         },
         now,
       );
@@ -431,6 +493,7 @@ export function completeLesson(state, progress, now = Date.now()) {
         completedCount: state.completionCount,
         lastCompletedAt: now,
         hintCount,
+        recentHintTimestamps,
       },
     },
     skills,

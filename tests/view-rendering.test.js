@@ -5,11 +5,13 @@ import { readFile } from 'node:fs/promises';
 import { LESSONS, PROJECTS, REGIONS } from '../src/curriculum/index.js';
 import { createLessonState } from '../src/game-core.js';
 import { downloadProgressJson } from '../src/parent-actions.js';
+import { createPlacementState } from '../src/progression.js';
 import { getSceneState } from '../src/scene-model.js';
 import { createProgressV2 } from '../src/storage.js';
 import { renderCompletion } from '../src/views/completion-view.js';
 import { renderLesson } from '../src/views/lesson-view.js';
 import { renderMap } from '../src/views/map-view.js';
+import { renderPlacement } from '../src/views/placement-view.js';
 
 const firstLessonState = (seed = 2) => createLessonState(
   'lesson-001',
@@ -29,6 +31,7 @@ test('map exposes one primary continue action and all region landmarks', () => {
 
   assert.equal((html.match(/data-action="continue-course"/g) ?? []).length, 1);
   assert.equal((html.match(/data-action="open-garage"/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /data-action="open-lesson"/, 'future phases must not bypass progression');
   assert.match(html, /data-current-lesson="lesson-001"/);
   assert.match(html, /assets\/construction-fleet\.svg#excavator/);
   for (const region of REGIONS) {
@@ -50,6 +53,43 @@ test('map makes completed projects replayable and leaves future projects locked'
   assert.match(html, /data-project="project-002"/);
   assert.match(html, /data-project="project-003"[^>]*aria-current="step"/);
   assert.match(html, /data-project="project-004"[^>]*aria-disabled="true"/);
+});
+
+test('map renders all progression states and exact phase replay controls', () => {
+  const html = renderMap({
+    regions: REGIONS,
+    currentRegionId: 'sunny-town',
+    currentProjectId: 'project-004',
+    currentLessonId: 'lesson-010',
+    completedProjectIds: ['project-001'],
+    selectedProjectId: 'project-001',
+    placementAvailable: true,
+    projectStates: [
+      { projectId: 'project-001', state: 'completed' },
+      { projectId: 'project-002', state: 'reviewDue' },
+      { projectId: 'project-003', state: 'inProgress' },
+      { projectId: 'project-004', state: 'learnable' },
+      { projectId: 'project-005', state: 'locked' },
+    ],
+  });
+
+  for (const state of ['completed', 'reviewDue', 'inProgress', 'learnable', 'locked']) {
+    assert.match(html, new RegExp(`data-state="${state}"`));
+  }
+  for (const lessonId of ['lesson-001', 'lesson-002', 'lesson-003']) {
+    assert.match(html, new RegExp(`data-action="open-lesson"[^>]*data-lesson="${lessonId}"`));
+  }
+  assert.match(html, /data-action="start-placement"/);
+});
+
+test('placement view is encouraging, answerable and explicit that it does not record', () => {
+  const state = createPlacementState(createProgressV2(), 17, 1000);
+  const html = renderPlacement({ state, interaction: state.interactions[0] });
+
+  assert.match(html, /找到适合你的施工起点/);
+  assert.match(html, /不会录音/);
+  assert.match(html, /data-action="placement-answer"/);
+  assert.doesNotMatch(html, /失败|错误|扣分/);
 });
 
 test('map region scenes render every visible upgrade returned by scene state', () => {
@@ -101,6 +141,27 @@ test('lesson view renders speech, answers and a stable layered scene', () => {
   assert.match(html, /assets\/region-scenes\.svg#sunny-town/);
   assert.match(html, /assets\/region-scenes\.svg#sunny-town-upgrade-1/);
   assert.match(html, /assets\/construction-fleet\.svg#excavator/);
+});
+
+test('lesson view renders and escapes generated visual math stimuli', () => {
+  const state = firstLessonState(11);
+  const generated = state.interactions.find((interaction) => interaction.visualPrompt);
+  assert.ok(generated, 'lesson generation must provide a visual stimulus');
+  const interaction = { ...generated, visualPrompt: `${generated.visualPrompt} <img src=x>` };
+  const html = renderLesson({
+    lesson: LESSONS[0],
+    interaction,
+    interactionIndex: state.interactions.indexOf(generated),
+    interactionTotal: state.interactions.length,
+    scene: getSceneState('sunny-town', 1, interaction, []),
+    hintLevel: 0,
+    answered: false,
+    repeatState: 'ready',
+  });
+
+  assert.match(html, /class="problem-visual"[^>]*aria-label="任务图"/);
+  assert.match(html, /&lt;img src=x&gt;/);
+  assert.doesNotMatch(html, /<img src=x>/);
 });
 
 test('English interaction uses a three-second no-recording gate before choices', () => {

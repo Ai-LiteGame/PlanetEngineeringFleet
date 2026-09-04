@@ -127,6 +127,7 @@ export function renderLesson(model) {
           <button class="speaker-button" type="button" data-action="repeat-speech" aria-label="播放题目语音">${icon('speaker')}<span>${escapeHtml(speechLabel)}</span></button>
         </div>
         ${isEnglish ? `<p class="speech-line" lang="en">${escapeHtml(interaction.speech.text)}</p>${repeatMarkup(model.repeatState)}` : ''}
+        ${interaction.visualPrompt ? `<div class="problem-visual" aria-label="任务图">${escapeHtml(interaction.visualPrompt)}</div>` : ''}
         ${choicesVisible ? `<div class="answer-grid">${answerMarkup(interaction, model.hintLevel ?? 0, model.answered === true)}</div>` : ''}
         ${hintMarkup(interaction, model.hintLevel ?? 0, model.feedbackMessage, model.feedbackKind)}
         ${model.answered && model.readyToContinue ? `<div class="continue-row"><button class="primary-button" type="button" data-action="continue-interaction">${icon('arrow')}<span>继续施工</span></button></div>` : ''}

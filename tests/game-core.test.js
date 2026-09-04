@@ -7,6 +7,8 @@ import {
   restoreLessonState,
   createSession,
   submitAnswer,
+  submitAnswerAndPersist,
+  synchronizeSoundPreference,
   advance,
   completeLesson,
   commitLessonCompletion,
@@ -173,8 +175,25 @@ test('leaving a lesson briefing records viewed without recording practice', () =
     completedCount: 0,
     lastCompletedAt: null,
     hintCount: 0,
+    recentHintTimestamps: [],
   });
   assert.equal(progress.lessons['lesson-001'], undefined);
+});
+
+test('sound preference stays synchronized through the briefing transition', () => {
+  const progress = createProgressV2({ settings: { soundEnabled: true } });
+  const briefing = createLessonState('lesson-001', progress, 13, 1000);
+
+  const muted = synchronizeSoundPreference(progress, briefing, false);
+  assert.equal(progress.settings.soundEnabled, true);
+  assert.equal(briefing.progress.settings.soundEnabled, true);
+  assert.equal(muted.progress.settings.soundEnabled, false);
+  assert.equal(muted.lessonState.progress, muted.progress);
+  assert.equal(advance(muted.lessonState).progress.settings.soundEnabled, false);
+
+  const unmuted = synchronizeSoundPreference(muted.progress, null, true);
+  assert.equal(unmuted.progress.settings.soundEnabled, true);
+  assert.equal(unmuted.lessonState, null);
 });
 
 test('wrong answers reveal three help levels without completing the interaction', () => {
@@ -239,6 +258,24 @@ test('completing a lesson marks viewed and practiced separately and records skil
   assert.equal(advance(state).screen, 'map');
 });
 
+test('one lesson completion advances each repeated skill review event only once', () => {
+  const progress = createProgressV2();
+  let state = createLessonState('lesson-001', progress, 13, 1000);
+  state = advance(state);
+  while (!state.completed) {
+    state = submitAnswer(state, state.interactions[state.interactionIndex].answerId).state;
+    state = advance(state);
+  }
+
+  const firstSkillId = state.answers[0].skillIds[0];
+  const creditedInteractions = state.answers.filter((answer) => answer.skillIds.includes(firstSkillId)).length;
+  assert.equal(creditedInteractions > 1, true);
+  const completed = completeLesson(state, progress, 2000);
+  assert.equal(completed.skills[firstSkillId].independentCorrect, 1);
+  assert.deepEqual(completed.skills[firstSkillId].successfulEventIds, ['lesson-001:1']);
+  assert.equal(completed.skills[firstSkillId].nextReviewLessonCount, 2);
+});
+
 test('lesson hint totals count wrong attempts once per interaction and accumulate on replay', () => {
   function completeWithFinalMistakes(progress, seed, now, mistakes) {
     let state = createLessonState('lesson-001', progress, seed, now - 1000);
@@ -261,9 +298,17 @@ test('lesson hint totals count wrong attempts once per interaction and accumulat
 
   const first = completeWithFinalMistakes(createProgressV2(), 9, 5000, 2);
   assert.equal(first.lessons['lesson-001'].hintCount, 2);
+  assert.deepEqual(first.lessons['lesson-001'].recentHintTimestamps, [5000, 5000]);
 
   const replayed = completeWithFinalMistakes(first, 10, 7000, 1);
   assert.equal(replayed.lessons['lesson-001'].hintCount, 3);
+  assert.deepEqual(replayed.lessons['lesson-001'].recentHintTimestamps, [5000, 7000]);
+
+  const afterWindow = completeWithFinalMistakes(replayed, 11, 7000 + (8 * 86400000), 1);
+  assert.equal(afterWindow.lessons['lesson-001'].hintCount, 4);
+  assert.deepEqual(afterWindow.lessons['lesson-001'].recentHintTimestamps, [
+    7000 + (8 * 86400000),
+  ]);
 });
 
 test('committing a completed lesson persists progress and clears its active snapshot', () => {
@@ -323,6 +368,30 @@ test('lesson restore reuses the saved generation time and accumulated answers', 
   assert.equal(recordedExposures, expectedExposures);
 });
 
+test('a correct answer is persisted immediately and restores as resolved', () => {
+  const storage = memoryStorage();
+  const progress = createProgressV2();
+  let state = advance(createLessonState('lesson-001', progress, 23, 1000));
+  const interaction = state.interactions[0];
+  const wrongAnswer = interaction.choices.find((choice) => choice.id !== interaction.answerId);
+
+  state = submitAnswerAndPersist(state, wrongAnswer.id, storage).state;
+  assert.equal(loadActiveLesson(storage), null, 'unresolved attempts are not completion evidence');
+
+  state = submitAnswerAndPersist(state, interaction.answerId, storage).state;
+  const snapshot = loadActiveLesson(storage);
+  assert.equal(snapshot.answered, true);
+  assert.equal(snapshot.interactionIndex, 0);
+  assert.equal(snapshot.answers.length, 1);
+
+  const restored = restoreLessonState(snapshot, progress);
+  assert.equal(restored.answered, true);
+  assert.equal(restored.locked, true);
+  assert.equal(restored.hintLevel, 1);
+  assert.equal(submitAnswer(restored, interaction.answerId).state.answers.length, 1);
+  assert.equal(advance(restored).interactionIndex, 1);
+});
+
 test('commit orchestration retains the snapshot for an unfinished lesson', () => {
   const storage = memoryStorage();
   const progress = createProgressV2({
@@ -340,7 +409,7 @@ test('commit orchestration retains the snapshot for an unfinished lesson', () =>
   commitLessonCompletion(state, progress, storage, 5000);
 
   assert.deepEqual(loadActiveLesson(storage), {
-    lessonId: 'lesson-001', interactionIndex: 0, seed: 3, answers: [],
+    lessonId: 'lesson-001', interactionIndex: 0, seed: 3, answered: false, answers: [],
   });
 });
 
