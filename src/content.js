@@ -1,0 +1,215 @@
+export const STAGE_META = {
+  chinese: {
+    title: '汉字施工牌',
+    shortTitle: '识汉字',
+    vehicle: 'excavator',
+    vehicleName: '挖掘机',
+    color: 'yellow',
+  },
+  english: {
+    title: '英语补给站',
+    shortTitle: '说英语',
+    vehicle: 'mixer',
+    vehicleName: '搅拌车',
+    color: 'coral',
+  },
+  math: {
+    title: '数学吊装区',
+    shortTitle: '数学思维',
+    vehicle: 'crane',
+    vehicleName: '吊车',
+    color: 'green',
+  },
+  mixed: {
+    title: '综合配送站',
+    shortTitle: '综合挑战',
+    vehicle: 'dump-truck',
+    vehicleName: '翻斗车',
+    color: 'blue',
+  },
+};
+
+const makeChoice = (id, label, visual = label, a11yLabel = label) => ({
+  id,
+  label,
+  visual,
+  a11yLabel,
+});
+
+export const QUESTION_BANKS = {
+  chinese: [
+    {
+      id: 'zh-bridge', stage: 'chinese', skillId: 'zh:桥',
+      prompt: '请挖出写着“桥”的石头',
+      speech: { text: '请挖出写着桥的石头', lang: 'zh-CN' },
+      choices: [makeChoice('road', '路'), makeChoice('bridge', '桥'), makeChoice('river', '河')],
+      answerId: 'bridge', success: '桥，彩虹桥', hint: '桥的左边是木字旁。',
+    },
+    {
+      id: 'zh-car', stage: 'chinese', skillId: 'zh:车',
+      prompt: '找到“车”字施工牌',
+      speech: { text: '找到车字施工牌', lang: 'zh-CN' },
+      choices: [makeChoice('east', '东'), makeChoice('car', '车'), makeChoice('door', '门')],
+      answerId: 'car', success: '车，工程车', hint: '车字中间有一竖。',
+    },
+    {
+      id: 'zh-up', stage: 'chinese', skillId: 'zh:上',
+      prompt: '哪个字是“上”？',
+      speech: { text: '哪个字是上', lang: 'zh-CN' },
+      choices: [makeChoice('down', '下'), makeChoice('up', '上'), makeChoice('soil', '土')],
+      answerId: 'up', success: '上，向上升', hint: '短横在长横上面。',
+    },
+    {
+      id: 'zh-mountain', stage: 'chinese', skillId: 'zh:山',
+      prompt: '把挖掘机开到“山”',
+      speech: { text: '把挖掘机开到山', lang: 'zh-CN' },
+      choices: [makeChoice('mountain', '山'), makeChoice('fire', '火'), makeChoice('water', '水')],
+      answerId: 'mountain', success: '山，高高的山', hint: '山字像三座山峰。',
+    },
+    {
+      id: 'zh-water', stage: 'chinese', skillId: 'zh:水',
+      prompt: '找到“水”字水管',
+      speech: { text: '找到水字水管', lang: 'zh-CN' },
+      choices: [makeChoice('wood', '木'), makeChoice('water', '水'), makeChoice('fire', '火')],
+      answerId: 'water', success: '水，清清的水', hint: '水字两边像水花。',
+    },
+    {
+      id: 'zh-wood', stage: 'chinese', skillId: 'zh:木',
+      prompt: '哪块材料写着“木”？',
+      speech: { text: '哪块材料写着木', lang: 'zh-CN' },
+      choices: [makeChoice('person', '人'), makeChoice('wood', '木'), makeChoice('big', '大')],
+      answerId: 'wood', success: '木，木头的木', hint: '木字比人字多一横一竖。',
+    },
+  ],
+  english: [
+    {
+      id: 'en-three', stage: 'english', skillId: 'en:three',
+      prompt: '跟我说：Three blocks', displaySpeech: 'Three blocks',
+      speech: { text: 'Three blocks', lang: 'en-US' }, requiresRepeat: true,
+      choices: [makeChoice('two', '2 块', '▰ ▰'), makeChoice('three', '3 块', '▰ ▰ ▰'), makeChoice('four', '4 块', '▰ ▰ ▰ ▰')],
+      answerId: 'three', success: 'Three blocks，三块砖', hint: '听一听 three，再数一数。',
+    },
+    {
+      id: 'en-blue', stage: 'english', skillId: 'en:blue',
+      prompt: '跟我说：Blue', displaySpeech: 'Blue',
+      speech: { text: 'Blue', lang: 'en-US' }, requiresRepeat: true,
+      choices: [makeChoice('red', '红色', '●'), makeChoice('blue', '蓝色', '●'), makeChoice('yellow', '黄色', '●')],
+      answerId: 'blue', success: 'Blue，蓝色', hint: 'Blue 是天空的颜色。', visualType: 'colors',
+    },
+    {
+      id: 'en-stop', stage: 'english', skillId: 'en:stop',
+      prompt: '跟我说：Stop', displaySpeech: 'Stop',
+      speech: { text: 'Stop', lang: 'en-US' }, requiresRepeat: true,
+      choices: [makeChoice('go', '出发', '➜'), makeChoice('stop', '停车', '■'), makeChoice('help', '帮忙', '✦')],
+      answerId: 'stop', success: 'Stop，停下来', hint: 'Stop 是让车停下。',
+    },
+    {
+      id: 'en-go', stage: 'english', skillId: 'en:go',
+      prompt: '跟我说：Go', displaySpeech: 'Go',
+      speech: { text: 'Go', lang: 'en-US' }, requiresRepeat: true,
+      choices: [makeChoice('stop', '停车', '■'), makeChoice('go', '出发', '➜'), makeChoice('small', '小的', '●')],
+      answerId: 'go', success: 'Go，出发', hint: 'Go 是让工程车出发。',
+    },
+    {
+      id: 'en-big', stage: 'english', skillId: 'en:big',
+      prompt: '跟我说：Big truck', displaySpeech: 'Big truck',
+      speech: { text: 'Big truck', lang: 'en-US' }, requiresRepeat: true,
+      choices: [makeChoice('small', '小车', '▰'), makeChoice('big', '大车', '▰'), makeChoice('two', '两辆', '▰ ▰')],
+      answerId: 'big', success: 'Big truck，大卡车', hint: 'Big 是大的。', visualType: 'sizes',
+    },
+    {
+      id: 'en-yellow', stage: 'english', skillId: 'en:yellow',
+      prompt: '跟我说：Yellow', displaySpeech: 'Yellow',
+      speech: { text: 'Yellow', lang: 'en-US' }, requiresRepeat: true,
+      choices: [makeChoice('blue', '蓝色', '●'), makeChoice('yellow', '黄色', '●'), makeChoice('red', '红色', '●')],
+      answerId: 'yellow', success: 'Yellow，黄色', hint: 'Yellow 是工程车的颜色。', visualType: 'colors',
+    },
+  ],
+  math: [
+    {
+      id: 'math-count-six', stage: 'math', skillId: 'math:count',
+      prompt: '哪辆车装了 6 块砖？', speech: { text: '哪辆车装了六块砖', lang: 'zh-CN' },
+      choices: [makeChoice('five', '5 块', '▰▰▰▰▰'), makeChoice('six', '6 块', '▰▰▰\n▰▰▰'), makeChoice('seven', '7 块', '▰▰▰▰\n▰▰▰')],
+      answerId: 'six', success: '正好 6 块砖', hint: '一边点，一边数到 6。',
+    },
+    {
+      id: 'math-pattern-ab', stage: 'math', skillId: 'math:pattern',
+      prompt: '下一块是什么颜色？', speech: { text: '黄色，蓝色，黄色，蓝色，下一块是什么颜色', lang: 'zh-CN' },
+      pattern: ['yellow', 'blue', 'yellow', 'blue', '?'],
+      choices: [makeChoice('yellow', '黄色', '●'), makeChoice('blue', '蓝色', '●'), makeChoice('red', '红色', '●')],
+      answerId: 'yellow', success: '黄蓝黄蓝，下一块是黄色', hint: '颜色一个接一个轮流出现。', visualType: 'colors',
+    },
+    {
+      id: 'math-more', stage: 'math', skillId: 'math:compare',
+      prompt: '哪辆车的石头更多？', speech: { text: '哪辆车的石头更多', lang: 'zh-CN' },
+      choices: [makeChoice('four', '4 块', '● ● ● ●'), makeChoice('seven', '7 块', '● ● ● ●\n● ● ●'), makeChoice('three', '3 块', '● ● ●')],
+      answerId: 'seven', success: '7 比 4 和 3 都多', hint: '先找最长的一排，再数一数。',
+    },
+    {
+      id: 'math-shape', stage: 'math', skillId: 'math:space',
+      prompt: '哪块形状能补好桥面？', speech: { text: '哪块形状能补好桥面', lang: 'zh-CN' },
+      choices: [makeChoice('circle', '圆形', '●'), makeChoice('square', '正方形', '■'), makeChoice('triangle', '三角形', '▲')],
+      answerId: 'square', success: '正方形刚好填满缺口', hint: '缺口有四条一样长的边。',
+    },
+    {
+      id: 'math-add', stage: 'math', skillId: 'math:add',
+      prompt: '车上有 3 块，再装 2 块，一共几块？', speech: { text: '车上有三块，再装两块，一共几块', lang: 'zh-CN' },
+      choices: [makeChoice('four', '4', '4'), makeChoice('five', '5', '5'), makeChoice('six', '6', '6')],
+      answerId: 'five', success: '3 加 2 等于 5', hint: '从 3 接着数两个：4、5。',
+    },
+    {
+      id: 'math-pattern-aab', stage: 'math', skillId: 'math:pattern',
+      prompt: '两个圆、一个三角，下一块是什么？', speech: { text: '两个圆，一个三角，两个圆，下一个是什么', lang: 'zh-CN' },
+      pattern: ['circle', 'circle', 'triangle', 'circle', 'circle', '?'],
+      choices: [makeChoice('triangle', '三角形', '▲'), makeChoice('circle', '圆形', '●'), makeChoice('square', '正方形', '■')],
+      answerId: 'triangle', success: '两个圆接一个三角', hint: '每三个一组：圆、圆、三角。',
+    },
+  ],
+  mixed: [
+    {
+      id: 'mix-three-yellow-bridge', stage: 'mixed', skillId: 'mixed:delivery',
+      prompt: '把 3 块黄色砖送到“桥”旁边', speech: { text: '把三块黄色砖送到桥字旁边', lang: 'zh-CN' },
+      choices: [
+        makeChoice('correct', '桥 · 3 块黄色', '桥\n▰ ▰ ▰'),
+        makeChoice('wrong-count', '桥 · 2 块黄色', '桥\n▰ ▰'),
+        makeChoice('wrong-word', '路 · 3 块黄色', '路\n▰ ▰ ▰'),
+      ],
+      answerId: 'correct', success: '材料送到彩虹桥了', hint: '先找“桥”，再数 3 块。', accent: 'yellow',
+    },
+    {
+      id: 'mix-two-blue-road', stage: 'mixed', skillId: 'mixed:delivery',
+      prompt: 'Two blue blocks，送到“路”', speech: { text: 'Two blue blocks，送到路', lang: 'en-US' },
+      choices: [
+        makeChoice('correct', '路 · 2 块蓝色', '路\n▰ ▰'),
+        makeChoice('wrong-count', '路 · 3 块蓝色', '路\n▰ ▰ ▰'),
+        makeChoice('wrong-word', '桥 · 2 块蓝色', '桥\n▰ ▰'),
+      ],
+      answerId: 'correct', success: 'Two blue blocks，送达', hint: 'Two 是 2，再找“路”。', accent: 'blue',
+    },
+    {
+      id: 'mix-stop-at-bridge', stage: 'mixed', skillId: 'mixed:direction',
+      prompt: '听到 Stop，在“桥”前停车', speech: { text: 'Stop，停在桥前面', lang: 'en-US' },
+      choices: [makeChoice('bridge', '桥前停车', '■ 桥'), makeChoice('road', '路前停车', '■ 路'), makeChoice('go', '继续出发', '➜')],
+      answerId: 'bridge', success: 'Stop，在桥前安全停车', hint: 'Stop 是停车，再找“桥”。',
+    },
+    {
+      id: 'mix-five-red-car', stage: 'mixed', skillId: 'mixed:delivery',
+      prompt: '给“车”送 5 个红色零件', speech: { text: '给车字送五个红色零件', lang: 'zh-CN' },
+      choices: [makeChoice('correct', '车 · 5 个', '车\n● ● ● ● ●'), makeChoice('wrong-count', '车 · 4 个', '车\n● ● ● ●'), makeChoice('wrong-word', '门 · 5 个', '门\n● ● ● ● ●')],
+      answerId: 'correct', success: '5 个零件送给工程车', hint: '先找“车”，再数到 5。', accent: 'red',
+    },
+    {
+      id: 'mix-big-truck-up', stage: 'mixed', skillId: 'mixed:direction',
+      prompt: 'Big truck 开到“上”坡', speech: { text: 'Big truck，开到上坡', lang: 'en-US' },
+      choices: [makeChoice('correct', '大车 · 上', '▰ ↑'), makeChoice('small', '小车 · 上', '▬ ↑'), makeChoice('down', '大车 · 下', '▰ ↓')],
+      answerId: 'correct', success: 'Big truck，开上坡', hint: 'Big 是大，再找“上”。',
+    },
+    {
+      id: 'mix-pattern-to-wood', stage: 'mixed', skillId: 'mixed:pattern',
+      prompt: '补好黄蓝规律，送到“木”', speech: { text: '补好黄蓝规律，送到木字旁边', lang: 'zh-CN' },
+      pattern: ['yellow', 'blue', 'yellow', 'blue', '?'],
+      choices: [makeChoice('correct', '黄色 · 木', '● 木'), makeChoice('blue', '蓝色 · 木', '● 木'), makeChoice('word', '黄色 · 水', '● 水')],
+      answerId: 'correct', success: '规律补好了，材料送到木字旁', hint: '黄蓝轮流，下一块是黄，再找“木”。', accent: 'yellow',
+    },
+  ],
+};
