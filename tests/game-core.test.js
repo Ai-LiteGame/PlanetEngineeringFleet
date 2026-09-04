@@ -8,10 +8,25 @@ import {
   submitAnswer,
   advance,
   completeLesson,
+  commitLessonCompletion,
   updateMastery,
   questionWeight,
 } from '../src/game-core.js';
-import { createProgressV2 } from '../src/storage.js';
+import {
+  createProgressV2,
+  loadActiveLesson,
+  loadProgress,
+  saveActiveLesson,
+} from '../src/storage.js';
+
+function memoryStorage() {
+  const values = new Map();
+  return {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, String(value)); },
+    removeItem(key) { values.delete(key); },
+  };
+}
 
 test('initial state waits at the intro without a running session', () => {
   assert.deepEqual(createInitialState(), {
@@ -220,6 +235,43 @@ test('completing a lesson marks viewed and practiced separately and records skil
   assert.equal(repeated.lessons['lesson-001'].completedCount, 1);
   assert.deepEqual(repeated.completionIds, ['lesson-001:1']);
   assert.equal(advance(state).screen, 'map');
+});
+
+test('committing a completed lesson persists progress and clears its active snapshot', () => {
+  const storage = memoryStorage();
+  let state = createLessonState('lesson-001', createProgressV2(), 3, 1000);
+  saveActiveLesson(storage, { lessonId: state.lessonId, interactionIndex: 0, seed: state.seed });
+  assert.notEqual(loadActiveLesson(storage), null);
+  while (!state.completed) {
+    state = submitAnswer(state, state.interactions[state.interactionIndex].answerId).state;
+    state = advance(state);
+  }
+
+  const progress = commitLessonCompletion(state, createProgressV2(), storage, 5000);
+
+  assert.deepEqual(loadProgress(storage), progress);
+  assert.equal(loadActiveLesson(storage), null);
+});
+
+test('commit orchestration retains the snapshot for an unfinished lesson', () => {
+  const storage = memoryStorage();
+  const progress = createProgressV2({
+    completionIds: ['lesson-001:1'],
+    lastCompletion: {
+      id: 'lesson-001:1',
+      lessonId: 'lesson-001',
+      completedCount: 1,
+      effects: { clearActiveLesson: true },
+    },
+  });
+  const state = createLessonState('lesson-001', createProgressV2(), 3, 1000);
+  saveActiveLesson(storage, { lessonId: state.lessonId, interactionIndex: 0, seed: state.seed });
+
+  commitLessonCompletion(state, progress, storage, 5000);
+
+  assert.deepEqual(loadActiveLesson(storage), {
+    lessonId: 'lesson-001', interactionIndex: 0, seed: 3,
+  });
 });
 
 test('a fresh replay receives the next completion id and increments the count', () => {

@@ -36,8 +36,8 @@ test('same lesson seed and progress produce the same interaction order', () => {
 });
 
 test('lessons allocate about one current interaction for every two review interactions', () => {
-  const lesson = LESSONS.find((item) => item.id === 'lesson-004');
-  const eligibleIds = [...new Set(LESSONS.slice(0, 2).flatMap((item) => [
+  const lesson = LESSONS.find((item) => item.id === 'lesson-008');
+  const eligibleIds = [...new Set(LESSONS.slice(0, 7).flatMap((item) => [
     ...item.newChineseIds,
     ...item.newEnglishWordIds,
     ...item.newEnglishPatternIds,
@@ -60,6 +60,31 @@ test('lessons allocate about one current interaction for every two review intera
   const reviewCount = interactions.filter((item) => item.skillIds.every((id) => !currentIds.has(id))).length;
 
   assert.deepEqual({ currentCount, reviewCount }, { currentCount: 4, reviewCount: 8 });
+});
+
+test('unbalanced review history preserves the subject-specific interaction blocks', () => {
+  const lesson = LESSONS.find((item) => item.id === 'lesson-004');
+  const chineseHistoryIds = LESSONS.slice(0, 2).flatMap((item) => item.newChineseIds);
+  const progress = createProgressV2({
+    skills: Object.fromEntries(chineseHistoryIds.map((id) => [id, {
+      ...createSkillRecord(), exposures: 1, status: 'practicing',
+    }])),
+  });
+
+  const interactions = buildLessonInteractions(lesson, progress, 5, 1000);
+  const currentIdsBySubject = {
+    chinese: new Set(lesson.newChineseIds),
+    english: new Set([...lesson.newEnglishWordIds, ...lesson.newEnglishPatternIds]),
+    math: new Set([lesson.mathSkillId]),
+  };
+
+  assert.deepEqual(interactions.slice(2, 5).map((item) => item.subject), Array(3).fill('chinese'));
+  assert.deepEqual(interactions.slice(5, 8).map((item) => item.subject), Array(3).fill('english'));
+  assert.deepEqual(interactions.slice(8, 11).map((item) => item.subject), Array(3).fill('math'));
+  for (const interaction of interactions.slice(2, 11)) {
+    assert.equal(interaction.skillIds.every((id) => currentIdsBySubject[interaction.subject].has(id)), true);
+  }
+  assert.equal(interactions.at(-1).subject, 'mixed');
 });
 
 test('language distractors are distinct from the answer and stay in the lesson tier', () => {

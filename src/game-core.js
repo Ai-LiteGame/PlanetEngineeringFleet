@@ -2,7 +2,7 @@ import { QUESTION_BANKS } from './content.js';
 import { getLesson, LESSONS } from './curriculum/index.js';
 import { buildLessonInteractions } from './question-factories.js';
 import { createSkillRecord, recordSkillAttempt } from './mastery.js';
-import { recordLessonViewed } from './storage.js';
+import { clearActiveLesson, recordLessonViewed, saveProgress } from './storage.js';
 
 export const STAGES = ['chinese', 'english', 'math', 'mixed'];
 
@@ -407,4 +407,22 @@ export function completeLesson(state, progress, now = Date.now()) {
     },
     skills,
   };
+}
+
+export function commitLessonCompletion(state, progress, storage, now = Date.now()) {
+  const completedProgress = completeLesson(state, progress, now);
+  if (!isLessonState(state)
+    || !state.completed
+    || !Number.isInteger(now)
+    || now < 0
+    || state.completionId !== `${state.lessonId}:${state.completionCount}`) {
+    return completedProgress;
+  }
+  const completion = completedProgress?.lastCompletion;
+  if (completion?.id !== state?.completionId || !completion.effects.clearActiveLesson) {
+    return completedProgress;
+  }
+  if (!saveProgress(storage, completedProgress)) return completedProgress;
+  clearActiveLesson(storage);
+  return completedProgress;
 }

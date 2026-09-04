@@ -677,10 +677,9 @@ function isKnownSkillId(skillId) {
     || mathById.has(skillId);
 }
 
-function reviewInteractions(skillIds, fallbackIds, count, random) {
-  const candidates = skillIds.length > 0 ? skillIds : fallbackIds;
+function reviewInteractions(skillIds, count, random) {
   return Array.from({ length: count }, (_, index) => {
-    const skillId = candidates[index % candidates.length];
+    const skillId = skillIds[index % skillIds.length];
     if (chineseById.has(skillId) && index % 2 === 1) {
       return chineseWordMatch(chineseById.get(skillId), random);
     }
@@ -717,9 +716,10 @@ export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = D
   }
 
   const random = seededRandom(seed, lesson.id);
-  const dueRecords = selectReviewSkills(progress, lesson, 16, now);
-  const dueIds = dueRecords.map((record) => record.id);
-  const eligibleReviewIds = dueRecords
+  const reviewRecordLimit = Math.max(16, Object.keys(progress?.skills ?? {}).length);
+  const reviewRecords = selectReviewSkills(progress, lesson, reviewRecordLimit, now);
+  const dueIds = reviewRecords.slice(0, 16).map((record) => record.id);
+  const eligibleReviewIds = reviewRecords
     .filter((record) => record.exposures > 0 && isKnownSkillId(record.id))
     .map((record) => record.id);
   const previousIds = priorProjectSkillIds(lesson);
@@ -732,28 +732,32 @@ export function buildLessonInteractions(lesson, progress = {}, seed = 0, now = D
   const tierChineseIds = CHINESE_ITEMS.filter((item) => item.tier === lesson.tier).map((item) => item.id);
   const tierWordIds = ENGLISH_WORDS.filter((item) => item.tier === lesson.tier).map((item) => item.id);
   const tierPatternIds = ENGLISH_PATTERNS.filter((item) => item.tier === lesson.tier).map((item) => item.id);
+  const reviewChineseIds = eligibleReviewIds.filter((id) => chineseById.has(id));
+  const reviewEnglishIds = eligibleReviewIds.filter((id) => (
+    englishWordById.has(id) || englishPatternById.has(id)
+  ));
+  const reviewMathIds = eligibleReviewIds.filter((id) => mathById.has(id));
+  const hasBalancedReviewHistory = eligibleReviewIds.length >= 8
+    && reviewChineseIds.length >= 2
+    && reviewEnglishIds.length >= 2
+    && reviewMathIds.length >= 2;
 
-  if (lesson.phase !== 'review' && eligibleReviewIds.length >= 8) {
+  if (lesson.phase !== 'review' && hasBalancedReviewHistory) {
     const currentChineseId = shuffled(lesson.newChineseIds, random)[0];
     const currentEnglishId = shuffled([
       ...lesson.newEnglishWordIds,
       ...lesson.newEnglishPatternIds,
     ], random)[0];
-    const reviewChineseIds = eligibleReviewIds.filter((id) => chineseById.has(id));
-    const reviewEnglishIds = eligibleReviewIds.filter((id) => (
-      englishWordById.has(id) || englishPatternById.has(id)
-    ));
-    const reviewMathIds = eligibleReviewIds.filter((id) => mathById.has(id));
     const currentEnglishItem = englishWordById.get(currentEnglishId)
       ?? englishPatternById.get(currentEnglishId);
     const result = [
-      ...reviewInteractions(eligibleReviewIds.slice(0, 2), eligibleReviewIds, 2, random),
+      ...reviewInteractions(eligibleReviewIds.slice(0, 2), 2, random),
       chineseRecognition(chineseById.get(currentChineseId), random),
-      ...reviewInteractions(reviewChineseIds, eligibleReviewIds, 2, random),
+      ...reviewInteractions(reviewChineseIds, 2, random),
       interactionForSkill(currentEnglishId, random),
-      ...reviewInteractions(reviewEnglishIds, eligibleReviewIds, 2, random),
+      ...reviewInteractions(reviewEnglishIds, 2, random),
       mathInteraction(mathById.get(lesson.mathSkillId), random),
-      ...reviewInteractions(reviewMathIds, eligibleReviewIds, 2, random),
+      ...reviewInteractions(reviewMathIds, 2, random),
       mixedDelivery(
         chineseById.get(currentChineseId),
         currentEnglishItem,
