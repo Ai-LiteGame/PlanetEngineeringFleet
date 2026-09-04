@@ -38,7 +38,7 @@ export function renderCompletion(model) {
       <section class="completion-controls" aria-labelledby="completion-title">
         <div class="completion-mark" aria-hidden="true">${icon(isProjectComplete ? 'star' : 'check')}</div>
         <div class="completion-copy">
-          <p class="eyebrow">第 ${lesson.ordinal} 课</p>
+          <p class="eyebrow">第 ${escapeHtml(lesson.ordinal)} 课</p>
           <h1 id="completion-title">${escapeHtml(title)}</h1>
           <p><strong>${escapeHtml(lesson.title)}</strong></p>
           <p>${escapeHtml(detail)}</p>

@@ -1,9 +1,15 @@
 let soundEnabled = true;
 let audioContext = null;
+let activeSpeech = null;
+
+function finishActiveSpeech(completed = false) {
+  activeSpeech?.finish(completed);
+}
 
 export function setSoundEnabled(value) {
   soundEnabled = Boolean(value);
   if (!soundEnabled && 'speechSynthesis' in globalThis) {
+    finishActiveSpeech(false);
     globalThis.speechSynthesis.cancel();
   }
 }
@@ -14,18 +20,81 @@ export function isSpeechAvailable() {
 }
 
 export function speak(text, lang = 'zh-CN') {
-  if (!soundEnabled || !text || !isSpeechAvailable()) return false;
+  if (!soundEnabled || !text || !isSpeechAvailable()) return Promise.resolve(false);
   try {
+    finishActiveSpeech(false);
     globalThis.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
     utterance.rate = lang.startsWith('en') ? 0.72 : 0.82;
     utterance.pitch = 1.08;
-    globalThis.speechSynthesis.speak(utterance);
-    return true;
+    return new Promise((resolve) => {
+      let settled = false;
+      const fallbackTimer = setTimeout(() => finish(false), 10000);
+      const finish = (completed) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(fallbackTimer);
+        utterance.onend = null;
+        utterance.onerror = null;
+        if (activeSpeech?.utterance === utterance) activeSpeech = null;
+        resolve(completed);
+      };
+      activeSpeech = { utterance, finish };
+      utterance.onend = () => finish(true);
+      utterance.onerror = () => finish(false);
+      try {
+        globalThis.speechSynthesis.speak(utterance);
+      } catch {
+        finish(false);
+      }
+    });
   } catch {
-    return false;
+    return Promise.resolve(false);
   }
+}
+
+export function createSpeechCountdown({
+  speaker = speak,
+  schedule = setTimeout,
+  clearSchedule = clearTimeout,
+  duration = 3000,
+  onCountdownStart = () => {},
+  onComplete = () => {},
+} = {}) {
+  let generation = 0;
+  let timer = null;
+
+  function cancel() {
+    generation += 1;
+    if (timer !== null) clearSchedule(timer);
+    timer = null;
+  }
+
+  function start(text, lang) {
+    cancel();
+    const currentGeneration = generation;
+    let speechCompletion;
+    try {
+      speechCompletion = speaker(text, lang);
+    } catch {
+      speechCompletion = false;
+    }
+    return Promise.resolve(speechCompletion)
+      .catch(() => false)
+      .then(() => {
+        if (currentGeneration !== generation) return false;
+        onCountdownStart();
+        timer = schedule(() => {
+          if (currentGeneration !== generation) return;
+          timer = null;
+          onComplete();
+        }, duration);
+        return true;
+      });
+  }
+
+  return Object.freeze({ start, cancel });
 }
 
 function context() {

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import { LESSONS, PROJECTS, REGIONS } from '../src/curriculum/index.js';
 import { createLessonState } from '../src/game-core.js';
@@ -47,6 +48,18 @@ test('map makes completed projects replayable and leaves future projects locked'
   assert.match(html, /data-project="project-002"/);
   assert.match(html, /data-project="project-003"[^>]*aria-current="step"/);
   assert.match(html, /data-project="project-004"[^>]*aria-disabled="true"/);
+});
+
+test('map region scenes render every visible upgrade returned by scene state', () => {
+  const html = renderMap({
+    regions: REGIONS,
+    currentRegionId: 'sunny-town',
+    currentProjectId: 'project-004',
+    currentLessonId: 'lesson-010',
+    completedProjectIds: ['project-001', 'project-002', 'project-003'],
+  });
+
+  assert.match(html, /assets\/region-scenes\.svg#sunny-town-upgrade-1/);
 });
 
 test('map has an asset-free recovery state with a retry action', () => {
@@ -137,7 +150,11 @@ test('third hint demonstrates without auto-submitting and answered view locks ch
 });
 
 test('completion view returns to the map and escapes curriculum copy', () => {
-  const lesson = { ...LESSONS[0], title: '<img src=x onerror=alert(1)>' };
+  const lesson = {
+    ...LESSONS[0],
+    title: '<img src=x onerror=alert(1)>',
+    ordinal: '<img src=x onerror=alert(2)>',
+  };
   const project = PROJECTS[0];
   const html = renderCompletion({
     lesson,
@@ -149,5 +166,45 @@ test('completion view returns to the map and escapes curriculum copy', () => {
 
   assert.match(html, /data-action="continue-interaction"/);
   assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(html, /&lt;img src=x onerror=alert\(2\)&gt;/);
   assert.doesNotMatch(html, /<img src=x/);
+});
+
+test('lesson briefing escapes lesson ordinals', () => {
+  const state = firstLessonState();
+  const lesson = { ...LESSONS[0], ordinal: '<svg onload=alert(1)>' };
+  const html = renderLesson({
+    screen: 'briefing',
+    lesson,
+    interaction: state.interactions[0],
+    interactionIndex: 0,
+    interactionTotal: state.interactions.length,
+    scene: getSceneState('sunny-town', 1, state.interactions[0], []),
+  });
+
+  assert.match(html, /&lt;svg onload=alert\(1\)&gt;/);
+  assert.doesNotMatch(html, /<svg onload=/);
+});
+
+test('map content uses a non-main landmark inside the application main', () => {
+  const html = renderMap({
+    regions: REGIONS,
+    currentRegionId: 'sunny-town',
+    currentProjectId: 'project-001',
+    currentLessonId: 'lesson-001',
+    completedProjectIds: [],
+  });
+
+  assert.doesNotMatch(html, /<main\b/);
+  assert.match(html, /<section class="world-map"[^>]*aria-labelledby="map-title"/);
+});
+
+test('mobile CSS keeps lesson progress visible and reset control touch-sized', async () => {
+  const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+  const mobile = css.slice(css.indexOf('@media (max-width: 560px)'));
+
+  assert.doesNotMatch(mobile, /\.world-topbar\s*>\s*:nth-child\(2\)\s*{[^}]*display:\s*none/);
+  assert.doesNotMatch(mobile, /\.lesson-progress\s*{[^}]*display:\s*none/);
+  assert.match(mobile, /\.lesson-topbar \.brand-lockup\s*{[^}]*display:\s*none/);
+  assert.match(css, /#reset-progress\s*{[^}]*min-height:\s*56px/);
 });

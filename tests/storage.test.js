@@ -157,15 +157,45 @@ test('a throwing localStorage getter falls back to unavailable in-memory progres
   }
 });
 
-test('lesson snapshot round trips only stable state', () => {
+test('lesson snapshot round trips sanitized stable state including prior answers', () => {
   const storage = memoryStorage();
+  const answers = [{
+    interactionId: 'lesson-014:chinese:1',
+    subject: 'chinese',
+    skillIds: ['zh-001'],
+    correct: true,
+    assistance: 1,
+    attempts: 2,
+    animationFrame: 42,
+  }];
 
   assert.equal(saveActiveLesson(storage, {
-    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, animationFrame: 999,
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answers, animationFrame: 999,
   }), true);
   assert.equal(storage.getItem(ACTIVE_KEY).includes('animationFrame'), false);
   assert.deepEqual(loadActiveLesson(storage), {
     lessonId: 'lesson-014', interactionIndex: 4, seed: 17,
+    answers: [{
+      interactionId: 'lesson-014:chinese:1',
+      subject: 'chinese',
+      skillIds: ['zh-001'],
+      correct: true,
+      assistance: 1,
+      attempts: 2,
+    }],
+  });
+  assert.notEqual(loadActiveLesson(storage).answers, answers);
+  assert.notEqual(loadActiveLesson(storage).answers[0].skillIds, answers[0].skillIds);
+});
+
+test('old active lesson snapshots remain loadable with an empty answer history', () => {
+  const storage = memoryStorage();
+  storage.setItem(ACTIVE_KEY, JSON.stringify({
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17,
+  }));
+
+  assert.deepEqual(loadActiveLesson(storage), {
+    lessonId: 'lesson-014', interactionIndex: 4, seed: 17, answers: [],
   });
 });
 

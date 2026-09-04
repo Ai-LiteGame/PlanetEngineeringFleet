@@ -1,5 +1,12 @@
 import { LESSONS, PROJECTS, REGIONS, getLesson, getLessonsForProject, getProject } from './curriculum/index.js';
-import { advance, commitLessonCompletion, createLessonState, currentQuestion, submitAnswer } from './game-core.js';
+import {
+  advance,
+  commitLessonCompletion,
+  createLessonState,
+  currentQuestion,
+  restoreLessonState,
+  submitAnswer,
+} from './game-core.js';
 import { getSceneState } from './scene-model.js';
 import {
   clearActiveLesson,
@@ -10,7 +17,7 @@ import {
   saveProgress,
 } from './storage.js';
 import { isSettingsActivationKey } from './view-model.js';
-import { playSuccess, setSoundEnabled, speak } from './audio.js';
+import { createSpeechCountdown, playSuccess, setSoundEnabled, speak } from './audio.js';
 import { renderCompletion } from './views/completion-view.js';
 import { renderLesson } from './views/lesson-view.js';
 import { renderMap } from './views/map-view.js';
@@ -32,16 +39,27 @@ let actionActive = false;
 let mapErrorMessage = '';
 let assetsAvailable = true;
 let continueTimer = null;
-let repeatTimer = null;
 let settingsHoldTimer = null;
 let resetTimer = null;
 let resetArmed = false;
 
+const englishRepeatCountdown = createSpeechCountdown({
+  onCountdownStart() {
+    if (screen !== 'lesson' || lessonState?.screen !== 'playing' || lessonState.answered) return;
+    repeatState = 'countdown';
+    render();
+  },
+  onComplete() {
+    if (screen !== 'lesson' || lessonState?.screen !== 'playing' || lessonState.answered) return;
+    repeatState = 'ready';
+    render();
+  },
+});
+
 function clearInteractionTimers() {
   clearTimeout(continueTimer);
-  clearTimeout(repeatTimer);
+  englishRepeatCountdown.cancel();
   continueTimer = null;
-  repeatTimer = null;
 }
 
 function currentLessonId() {
@@ -163,19 +181,14 @@ function saveLessonSnapshot() {
     lessonId: lessonState.lessonId,
     interactionIndex: lessonState.interactionIndex,
     seed: lessonState.seed,
+    answers: lessonState.answers,
   });
 }
 
 function beginEnglishRepeat(interaction) {
-  clearTimeout(repeatTimer);
-  repeatState = 'speaking';
+  repeatState = 'demonstrating';
   render();
-  speak(interaction.speech.text, interaction.speech.lang);
-  repeatTimer = setTimeout(() => {
-    repeatState = 'ready';
-    repeatTimer = null;
-    render();
-  }, 3000);
+  englishRepeatCountdown.start(interaction.speech.text, interaction.speech.lang);
 }
 
 function presentInteraction() {
@@ -198,8 +211,8 @@ function beginLesson(lessonId) {
   clearInteractionTimers();
   const lesson = getLesson(lessonId);
   if (!lesson) throw new RangeError(`Unknown lesson: ${lessonId}`);
-  const now = Date.now();
-  lessonState = createLessonState(lesson.id, progress, now, now);
+  const seed = Date.now();
+  lessonState = createLessonState(lesson.id, progress, seed, seed);
   screen = 'lesson';
   assetsAvailable = true;
   mapErrorMessage = '';
@@ -240,8 +253,7 @@ function handleAnswer(answerId) {
     return;
   }
 
-  clearTimeout(repeatTimer);
-  repeatTimer = null;
+  englishRepeatCountdown.cancel();
   repeatState = 'ready';
   readyToContinue = false;
   feedbackMessage = interaction.success;
@@ -331,10 +343,7 @@ function restoreActiveLesson() {
   const snapshot = loadActiveLesson();
   if (!snapshot) return;
   try {
-    const restored = createLessonState(snapshot.lessonId, progress, snapshot.seed, Date.now());
-    if (snapshot.interactionIndex >= restored.interactions.length) throw new RangeError('Invalid interaction index');
-    lessonState = advance(restored);
-    lessonState = { ...lessonState, interactionIndex: snapshot.interactionIndex };
+    lessonState = restoreLessonState(snapshot, progress);
     progress = lessonState.progress;
     saveProgress(undefined, progress);
     screen = 'lesson';

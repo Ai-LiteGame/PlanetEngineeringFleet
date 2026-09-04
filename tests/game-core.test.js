@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   createInitialState,
   createLessonState,
+  restoreLessonState,
   createSession,
   submitAnswer,
   advance,
@@ -253,6 +254,47 @@ test('committing a completed lesson persists progress and clears its active snap
   assert.equal(loadActiveLesson(storage), null);
 });
 
+test('lesson restore reuses the saved generation time and accumulated answers', () => {
+  const progress = createProgressV2();
+  let original = createLessonState('lesson-001', progress, 1700, 1700);
+  original = advance(original);
+  original = submitAnswer(
+    original,
+    original.interactions[original.interactionIndex].answerId,
+  ).state;
+  const expectedAnswers = original.answers;
+
+  const restored = restoreLessonState({
+    lessonId: original.lessonId,
+    interactionIndex: 1,
+    seed: original.seed,
+    answers: expectedAnswers,
+  }, progress);
+
+  assert.equal(restored.startedAt, 1700);
+  assert.deepEqual(restored.interactions, original.interactions);
+  assert.deepEqual(restored.answers, expectedAnswers);
+  assert.notEqual(restored.answers, expectedAnswers);
+  assert.equal(restored.screen, 'playing');
+  assert.equal(restored.interactionIndex, 1);
+
+  let completed = restored;
+  while (!completed.completed) {
+    completed = submitAnswer(
+      completed,
+      completed.interactions[completed.interactionIndex].answerId,
+    ).state;
+    completed = advance(completed);
+  }
+  const completedProgress = completeLesson(completed, progress, 5000);
+  const recordedExposures = Object.values(completedProgress.skills)
+    .reduce((total, record) => total + record.exposures, 0);
+  const expectedExposures = completed.answers
+    .reduce((total, answer) => total + answer.skillIds.length, 0);
+  assert.equal(completed.answers.length, original.interactions.length);
+  assert.equal(recordedExposures, expectedExposures);
+});
+
 test('commit orchestration retains the snapshot for an unfinished lesson', () => {
   const storage = memoryStorage();
   const progress = createProgressV2({
@@ -270,7 +312,7 @@ test('commit orchestration retains the snapshot for an unfinished lesson', () =>
   commitLessonCompletion(state, progress, storage, 5000);
 
   assert.deepEqual(loadActiveLesson(storage), {
-    lessonId: 'lesson-001', interactionIndex: 0, seed: 3,
+    lessonId: 'lesson-001', interactionIndex: 0, seed: 3, answers: [],
   });
 });
 

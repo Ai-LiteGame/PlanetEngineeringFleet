@@ -57,11 +57,11 @@ function hintMarkup(interaction, hintLevel, feedbackMessage, feedbackKind) {
 
 function repeatMarkup(repeatState) {
   if (repeatState === 'ready') return '';
-  const speaking = repeatState === 'speaking';
+  const demonstrating = repeatState === 'demonstrating';
   return `
-    <div class="repeat-rhythm ${speaking ? 'is-speaking' : ''}" aria-live="polite">
+    <div class="repeat-rhythm ${demonstrating ? 'is-speaking' : ''}" aria-live="polite">
       <div class="voice-waves" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-      <strong>${speaking ? '轮到你说 · 3 秒' : '先听示范，再跟着说'}</strong>
+      <strong>${demonstrating ? '先听示范，再跟着说' : '轮到你说 · 3 秒'}</strong>
       <span>只给跟说时间，不会录音</span>
     </div>`;
 }
@@ -69,7 +69,7 @@ function repeatMarkup(repeatState) {
 function briefingMarkup(lesson, project) {
   return `
     <section class="lesson-controls briefing-controls" aria-labelledby="lesson-title">
-      <p class="eyebrow">${escapeHtml(SUBJECT_LABELS.mixed)} · 第 ${lesson.ordinal} 课</p>
+      <p class="eyebrow">${escapeHtml(SUBJECT_LABELS.mixed)} · 第 ${escapeHtml(lesson.ordinal)} 课</p>
       <h1 id="lesson-title">${escapeHtml(lesson.title)}</h1>
       <p>${escapeHtml(project.outcome)}，工程队已经准备好了。</p>
       <button class="primary-button" type="button" data-action="continue-interaction">${icon('play')}<span>开始任务</span></button>

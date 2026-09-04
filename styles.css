@@ -366,6 +366,8 @@ button.project-node { cursor: pointer; }
 
 .danger-button { color: #a83d35; }
 
+#reset-progress { min-height: 56px; }
+
 .emergency-view { min-height: 100svh; display: grid; place-items: center; align-content: center; gap: 12px; padding: 24px; text-align: center; }
 
 .emergency-view strong { font-size: 24px; }
@@ -398,7 +400,9 @@ button.project-node { cursor: pointer; }
   .brand-mark { width: 38px; height: 38px; }
   .brand-lockup strong { font-size: 15px; }
   .brand-lockup small { max-width: 138px; }
-  .world-topbar > :nth-child(2) { display: none; }
+  .map-shell .topbar-progress { display: none; }
+  .lesson-topbar .brand-lockup { display: none; }
+  .completion-shell .brand-lockup { display: none; }
   .icon-button { width: 56px; height: 56px; }
   .utility-actions { gap: 2px; }
   .world-map { padding-inline: 12px; }

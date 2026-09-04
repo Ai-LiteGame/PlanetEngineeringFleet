@@ -8,6 +8,7 @@ export const LEGACY_ACTIVE_KEY = 'space-construction-fleet.active.v1';
 const LESSON_STATUSES = new Set(['notStarted', 'viewed', 'practiced', 'reviewDue', 'mastered']);
 const SKILL_STATUSES = new Set(['unseen', 'practicing', 'reviewDue', 'mastered']);
 const LEGACY_STAGES = new Set(['chinese', 'english', 'math', 'mixed']);
+const LESSON_SUBJECTS = new Set(['chinese', 'english', 'math', 'mixed']);
 
 // Only IDs shipped by the version-one game are migrated into current curriculum skills.
 export const LEGACY_SKILL_MAP = Object.freeze({
@@ -419,22 +420,51 @@ export function recordLessonViewed(progress, lessonId, now) {
   };
 }
 
-function isActiveLessonSnapshot(value) {
-  return isPlainObject(value)
-    && isLessonId(value.lessonId)
-    && isNonNegativeInteger(value.interactionIndex)
-    && Number.isFinite(value.seed);
+function normalizeLessonAnswer(value) {
+  if (!isPlainObject(value)
+    || typeof value.interactionId !== 'string'
+    || value.interactionId.length === 0
+    || !LESSON_SUBJECTS.has(value.subject)
+    || !isStringArray(value.skillIds)
+    || value.correct !== true
+    || !isNonNegativeInteger(value.assistance)
+    || !isNonNegativeInteger(value.attempts)) {
+    return null;
+  }
+  return {
+    interactionId: value.interactionId,
+    subject: value.subject,
+    skillIds: [...value.skillIds],
+    correct: true,
+    assistance: value.assistance,
+    attempts: value.attempts,
+  };
+}
+
+function normalizeActiveLessonSnapshot(value) {
+  if (!isPlainObject(value)
+    || !isLessonId(value.lessonId)
+    || !isNonNegativeInteger(value.interactionIndex)
+    || !isNonNegativeInteger(value.seed)
+    || !(value.answers === undefined || Array.isArray(value.answers))) {
+    return null;
+  }
+  const answers = (value.answers ?? []).map(normalizeLessonAnswer);
+  if (answers.some((answer) => answer === null)) return null;
+  return {
+    lessonId: value.lessonId,
+    interactionIndex: value.interactionIndex,
+    seed: value.seed,
+    answers,
+  };
 }
 
 export function saveActiveLesson(storage, snapshot) {
   try {
     const target = resolveStorage(storage);
-    if (!target || !isActiveLessonSnapshot(snapshot)) return false;
-    target.setItem(ACTIVE_KEY, JSON.stringify({
-      lessonId: snapshot.lessonId,
-      interactionIndex: snapshot.interactionIndex,
-      seed: snapshot.seed,
-    }));
+    const value = normalizeActiveLessonSnapshot(snapshot);
+    if (!target || !value) return false;
+    target.setItem(ACTIVE_KEY, JSON.stringify(value));
     return true;
   } catch {
     return false;
@@ -445,10 +475,7 @@ export function loadActiveLesson(storage) {
   try {
     const raw = resolveStorage(storage)?.getItem(ACTIVE_KEY);
     if (!raw) return null;
-    const value = JSON.parse(raw);
-    return isActiveLessonSnapshot(value)
-      ? { lessonId: value.lessonId, interactionIndex: value.interactionIndex, seed: value.seed }
-      : null;
+    return normalizeActiveLessonSnapshot(JSON.parse(raw));
   } catch {
     return null;
   }

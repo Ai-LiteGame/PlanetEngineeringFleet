@@ -39,8 +39,15 @@ function regionLandmark(region, currentRegionId, completedProjectIds, currentPro
   const activeVehicle = assetsAvailable && isCurrent && currentProject
     ? renderVehicle(currentProject.vehicle, 'map-current-vehicle is-working')
     : '';
-  const visual = assetsAvailable
-    ? `<svg class="region-landmark-scene" viewBox="0 0 320 180" aria-hidden="true"><use href="assets/region-scenes.svg#${escapeHtml(region.id)}"></use></svg>`
+  const sceneProject = projects.find((project) => !completedProjectIds.has(project.id)) ?? projects.at(-1);
+  const scene = assetsAvailable
+    ? getSceneState(region.id, sceneProject.ordinal, {}, [...completedProjectIds])
+    : null;
+  const upgradeLayers = (scene?.visibleUpgradeIds ?? []).map((id) => (
+    `<use class="scene-upgrade" href="assets/region-scenes.svg#${escapeHtml(id)}"></use>`
+  )).join('');
+  const visual = scene
+    ? `<svg class="region-landmark-scene" viewBox="0 0 320 180" aria-hidden="true"><use href="assets/region-scenes.svg#${escapeHtml(scene.regionSymbolId)}"></use>${upgradeLayers}</svg>`
     : `<div class="region-landmark-fallback" aria-hidden="true">${icon(isComplete ? 'check' : isCurrent ? 'play' : 'map')}</div>`;
 
   return `
@@ -90,7 +97,7 @@ export function renderMap(model) {
         <div class="topbar-progress" aria-label="当前区域项目进度"><strong>${localProjectIndex}</strong><span>/ ${regionProjects.length}</span></div>
         ${renderUtilityButtons(model.soundEnabled !== false)}
       </header>
-      <main class="world-map" aria-labelledby="map-title">
+      <section class="world-map" aria-labelledby="map-title">
         <div class="map-heading">
           <div>
             <p class="eyebrow">第 ${currentProject.ordinal} 号工程 · ${phase}</p>
@@ -115,6 +122,6 @@ export function renderMap(model) {
           </div>
           <p class="route-legend"><span><i class="legend-dot complete"></i>已完成可重玩</span><span><i class="legend-dot current"></i>当前工程</span><span><i class="legend-dot locked"></i>待开放</span></p>
         </section>
-      </main>
+      </section>
     </div>`;
 }

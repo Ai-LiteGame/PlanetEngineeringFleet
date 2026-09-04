@@ -262,6 +262,29 @@ export function createLessonState(lessonId, progress, seed = Date.now(), now = D
   };
 }
 
+export function restoreLessonState(snapshot, progress) {
+  const restored = advance(createLessonState(
+    snapshot.lessonId,
+    progress,
+    snapshot.seed,
+    snapshot.seed,
+  ));
+  if (!Number.isInteger(snapshot.interactionIndex)
+    || snapshot.interactionIndex < 0
+    || snapshot.interactionIndex >= restored.interactions.length) {
+    throw new RangeError('Invalid interaction index');
+  }
+  const answers = Array.isArray(snapshot.answers) ? snapshot.answers : [];
+  return {
+    ...restored,
+    interactionIndex: snapshot.interactionIndex,
+    answers: answers.map((answer) => ({
+      ...answer,
+      skillIds: [...answer.skillIds],
+    })),
+  };
+}
+
 function submitLessonAnswer(state, answerId) {
   const activeState = enterPlaying(state);
   const current = currentQuestion(activeState);
