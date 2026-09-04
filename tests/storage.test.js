@@ -9,12 +9,15 @@ import {
   exportProgress,
   getMigrationBackup,
   loadActiveLesson,
+  loadLegacyProgress,
   loadProgress,
   parseProgress,
   recordLessonViewed,
   saveActiveLesson,
+  saveLegacyProgress,
   saveProgress,
 } from '../src/storage.js';
+import { updateMastery } from '../src/game-core.js';
 
 function memoryStorage() {
   const values = new Map();
@@ -82,6 +85,15 @@ test('migration failures preserve raw input for recovery', () => {
   assert.equal(getMigrationBackup(), corrupted);
 });
 
+test('malformed version one sound settings preserve raw input for recovery', () => {
+  const malformed = JSON.stringify({
+    version: 1, sessionsCompleted: 1, bridgeStage: 1, soundEnabled: 'muted', skills: {},
+  });
+
+  assert.deepEqual(parseProgress(malformed), createProgressV2());
+  assert.equal(getMigrationBackup(), malformed);
+});
+
 test('load prefers version two and migrates version one only when needed', () => {
   const storage = memoryStorage();
   const v2 = createProgressV2();
@@ -107,6 +119,32 @@ test('storage exceptions preserve a usable in-memory value and mark it unavailab
   assert.equal(loadProgress(broken).storageAvailable, false);
   assert.equal(saveProgress(broken, progress), false);
   assert.equal(progress.storageAvailable, false);
+});
+
+test('a live legacy session saves its completed-session progress without v2 normalization', () => {
+  const storage = memoryStorage();
+  const sessionProgress = updateMastery(
+    { version: 1, sessionsCompleted: 2, bridgeStage: 2, soundEnabled: false, skills: {} },
+    [{ skillId: 'zh:桥', correct: true, assistance: 0 }],
+  );
+
+  assert.equal(saveLegacyProgress(storage, sessionProgress), true);
+  assert.deepEqual(loadLegacyProgress(storage), sessionProgress);
+});
+
+test('a throwing localStorage getter falls back to unavailable in-memory progress', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() { throw new Error('blocked'); },
+  });
+
+  try {
+    assert.equal(loadProgress().storageAvailable, false);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else delete globalThis.localStorage;
+  }
 });
 
 test('lesson snapshot round trips only stable state', () => {

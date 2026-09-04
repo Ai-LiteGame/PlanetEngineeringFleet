@@ -168,8 +168,34 @@ function isLegacyProgress(value) {
     && isNonNegativeInteger(value.sessionsCompleted)
     && isNonNegativeInteger(value.bridgeStage)
     && value.bridgeStage <= 3
+    && (!Object.hasOwn(value, 'soundEnabled') || typeof value.soundEnabled === 'boolean')
     && isPlainObject(value.skills)
     && Object.values(value.skills).every(isLegacySkillRecord);
+}
+
+function createLegacyProgress() {
+  return {
+    version: 1,
+    sessionsCompleted: 0,
+    bridgeStage: 0,
+    soundEnabled: true,
+    skills: {},
+  };
+}
+
+function normalizeLegacyProgress(value) {
+  if (!isLegacyProgress(value)) return null;
+  return {
+    version: 1,
+    sessionsCompleted: value.sessionsCompleted,
+    bridgeStage: value.bridgeStage,
+    soundEnabled: value.soundEnabled !== false,
+    skills: Object.fromEntries(Object.entries(value.skills).map(([id, record]) => [id, {
+      independentStreak: record.independentStreak,
+      helpStreak: record.helpStreak,
+      masteredAtSession: record.masteredAtSession,
+    }])),
+  };
 }
 
 function legacySkillToV2(record) {
@@ -269,22 +295,28 @@ function markStorageUnavailable(progress) {
   if (isPlainObject(progress)) progress.storageAvailable = false;
 }
 
-export function loadProgress(storage = globalThis.localStorage) {
+function resolveStorage(storage) {
+  return storage === undefined ? globalThis.localStorage : storage;
+}
+
+export function loadProgress(storage) {
   try {
-    const v2 = storage?.getItem(STORAGE_KEY);
+    const target = resolveStorage(storage);
+    const v2 = target?.getItem(STORAGE_KEY);
     if (v2 !== null && v2 !== undefined) return parseProgress(v2);
-    return migrateProgress(storage?.getItem(LEGACY_STORAGE_KEY));
+    return migrateProgress(target?.getItem(LEGACY_STORAGE_KEY));
   } catch {
     return createProgressV2({ storageAvailable: false });
   }
 }
 
-export function saveProgress(storage = globalThis.localStorage, progress) {
+export function saveProgress(storage, progress) {
   try {
-    if (!storage) throw new Error('storage unavailable');
+    const target = resolveStorage(storage);
+    if (!target) throw new Error('storage unavailable');
     const value = normalizeV2(progress) ?? createProgressV2();
     value.storageAvailable = true;
-    storage.setItem(STORAGE_KEY, JSON.stringify(value));
+    target.setItem(STORAGE_KEY, JSON.stringify(value));
     if (isPlainObject(progress)) progress.storageAvailable = true;
     return true;
   } catch {
@@ -293,11 +325,36 @@ export function saveProgress(storage = globalThis.localStorage, progress) {
   }
 }
 
-export function resetProgress(storage = globalThis.localStorage) {
+export function loadLegacyProgress(storage) {
   try {
-    if (!storage) return false;
-    storage.removeItem(STORAGE_KEY);
-    storage.removeItem(LEGACY_STORAGE_KEY);
+    const target = resolveStorage(storage);
+    const raw = target?.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return createLegacyProgress();
+    const progress = normalizeLegacyProgress(JSON.parse(raw));
+    return progress ?? createLegacyProgress();
+  } catch {
+    return createLegacyProgress();
+  }
+}
+
+export function saveLegacyProgress(storage, progress) {
+  try {
+    const target = resolveStorage(storage);
+    const value = normalizeLegacyProgress(progress);
+    if (!target || !value) return false;
+    target.setItem(LEGACY_STORAGE_KEY, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function resetProgress(storage) {
+  try {
+    const target = resolveStorage(storage);
+    if (!target) return false;
+    target.removeItem(STORAGE_KEY);
+    target.removeItem(LEGACY_STORAGE_KEY);
     return true;
   } catch {
     return false;
@@ -331,10 +388,11 @@ function isActiveLessonSnapshot(value) {
     && Number.isFinite(value.seed);
 }
 
-export function saveActiveLesson(storage = globalThis.localStorage, snapshot) {
+export function saveActiveLesson(storage, snapshot) {
   try {
-    if (!storage || !isActiveLessonSnapshot(snapshot)) return false;
-    storage.setItem(ACTIVE_KEY, JSON.stringify({
+    const target = resolveStorage(storage);
+    if (!target || !isActiveLessonSnapshot(snapshot)) return false;
+    target.setItem(ACTIVE_KEY, JSON.stringify({
       lessonId: snapshot.lessonId,
       interactionIndex: snapshot.interactionIndex,
       seed: snapshot.seed,
@@ -345,9 +403,9 @@ export function saveActiveLesson(storage = globalThis.localStorage, snapshot) {
   }
 }
 
-export function loadActiveLesson(storage = globalThis.localStorage) {
+export function loadActiveLesson(storage) {
   try {
-    const raw = storage?.getItem(ACTIVE_KEY);
+    const raw = resolveStorage(storage)?.getItem(ACTIVE_KEY);
     if (!raw) return null;
     const value = JSON.parse(raw);
     return isActiveLessonSnapshot(value)
@@ -364,19 +422,20 @@ export function exportProgress(progress) {
 }
 
 // Deprecated wrappers keep the shipped v1 UI operable until its callers move to lesson snapshots.
-export function saveActiveStage(storage = globalThis.localStorage, state) {
+export function saveActiveStage(storage, state) {
   try {
-    if (!storage || !Number.isFinite(state?.seed) || !LEGACY_STAGES.has(state?.stage)) return false;
-    storage.setItem(LEGACY_ACTIVE_KEY, JSON.stringify({ version: 1, seed: state.seed, stage: state.stage }));
+    const target = resolveStorage(storage);
+    if (!target || !Number.isFinite(state?.seed) || !LEGACY_STAGES.has(state?.stage)) return false;
+    target.setItem(LEGACY_ACTIVE_KEY, JSON.stringify({ version: 1, seed: state.seed, stage: state.stage }));
     return true;
   } catch {
     return false;
   }
 }
 
-export function loadActiveStage(storage = globalThis.localStorage) {
+export function loadActiveStage(storage) {
   try {
-    const raw = storage?.getItem(LEGACY_ACTIVE_KEY);
+    const raw = resolveStorage(storage)?.getItem(LEGACY_ACTIVE_KEY);
     if (!raw) return null;
     const value = JSON.parse(raw);
     return value?.version === 1 && Number.isFinite(value.seed) && LEGACY_STAGES.has(value.stage)
@@ -387,10 +446,11 @@ export function loadActiveStage(storage = globalThis.localStorage) {
   }
 }
 
-export function clearActiveStage(storage = globalThis.localStorage) {
+export function clearActiveStage(storage) {
   try {
-    if (!storage) return false;
-    storage.removeItem(LEGACY_ACTIVE_KEY);
+    const target = resolveStorage(storage);
+    if (!target) return false;
+    target.removeItem(LEGACY_ACTIVE_KEY);
     return true;
   } catch {
     return false;

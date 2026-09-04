@@ -9,8 +9,8 @@ import {
 } from './game-core.js';
 import { STAGE_META } from './content.js';
 import {
-  loadProgress,
-  saveProgress,
+  loadLegacyProgress,
+  saveLegacyProgress,
   resetProgress,
   loadActiveStage,
   saveActiveStage,
@@ -31,7 +31,7 @@ const soundToggle = document.querySelector('#sound-toggle');
 const learningSummary = document.querySelector('#learning-summary');
 const resetButton = document.querySelector('#reset-progress');
 
-let progress = loadProgress();
+let progress = loadLegacyProgress();
 let state = createInitialState();
 let repeatState = 'idle';
 let readyToContinue = false;
@@ -308,7 +308,7 @@ function continueGame() {
   if (state.completed) {
     if (!sessionFinalized) {
       progress = updateMastery(progress, state.sessionAnswers);
-      saveProgress(undefined, progress);
+      saveLegacyProgress(undefined, progress);
       clearActiveStage();
       sessionFinalized = true;
     }
@@ -390,7 +390,7 @@ for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
 soundToggle.addEventListener('change', () => {
   progress = { ...progress, soundEnabled: soundToggle.checked };
   setSoundEnabled(progress.soundEnabled);
-  saveProgress(undefined, progress);
+  saveLegacyProgress(undefined, progress);
 });
 
 resetButton.addEventListener('click', () => {
@@ -405,7 +405,7 @@ resetButton.addEventListener('click', () => {
   }
   resetProgress();
   clearActiveStage();
-  progress = loadProgress();
+  progress = loadLegacyProgress();
   state = createInitialState();
   setSoundEnabled(true);
   settingsDialog.close();
