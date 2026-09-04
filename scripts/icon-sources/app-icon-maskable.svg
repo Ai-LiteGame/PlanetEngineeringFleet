@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">星球工程车队挖掘机</title>
+  <rect width="512" height="512" fill="#163653"/>
+  <circle cx="256" cy="256" r="188" fill="#f7f7f2"/>
+  <g transform="translate(77 77) scale(.7)" stroke="#163653" stroke-linecap="round" stroke-linejoin="round" stroke-width="16">
+    <path d="M106 319h239l26 42H87z" fill="#f6c84c"/>
+    <path d="M203 247v-91h111l39 91z" fill="#f6c84c"/>
+    <path d="M224 179h67l23 51h-90z" fill="#f7f7f2" stroke-width="10"/>
+    <path d="m200 269-74-87-55 92" fill="none" stroke="#f6c84c" stroke-width="31"/>
+    <path d="m71 274-28 8-16 58h66l18-37z" fill="#d96552"/>
+    <path d="M126 341h246a38 38 0 0 1 0 76H126a38 38 0 0 1 0-76z" fill="#163653"/>
+    <circle cx="170" cy="379" r="20" fill="#f7f7f2"/>
+    <circle cx="327" cy="379" r="20" fill="#f7f7f2"/>
+    <path d="M319 263h39v28h-39z" fill="#d96552"/>
+  </g>
+</svg>
