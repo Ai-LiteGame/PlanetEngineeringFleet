@@ -192,8 +192,14 @@ test('every project has learn, build and review lessons', () => {
 
 test('lesson content stays within its tier', () => {
   for (const lesson of LESSONS) {
-    assert.equal(lesson.newChineseIds.length >= 2 && lesson.newChineseIds.length <= 4, true);
-    assert.equal(lesson.newEnglishWordIds.length >= 1 && lesson.newEnglishWordIds.length <= 2, true);
+    if (lesson.phase === 'review') {
+      assert.equal(lesson.newChineseIds.length, 0);
+      assert.equal(lesson.newEnglishWordIds.length, 0);
+      assert.equal(lesson.newEnglishPatternIds.length, 0);
+    } else {
+      assert.equal(lesson.newChineseIds.length >= 3 && lesson.newChineseIds.length <= 4, true);
+      assert.equal(lesson.newEnglishWordIds.length >= 1 && lesson.newEnglishWordIds.length <= 2, true);
+    }
     assert.equal([1, 2, 3].includes(lesson.tier), true);
   }
 });
@@ -225,7 +231,7 @@ export const REGIONS = Object.freeze([
 
 - [ ] **Step 4: 生成课程并验证所有内容仅分配一次作为新知识**
 
-`LESSONS` 按项目展开三阶段课程。内容切片使用累计配额，所有 700/300/100 项只在一节中标记为 `new`，后续由调度器复习。句型并非每节都有；无新句型时 `newEnglishPatternIds` 为空数组。
+`LESSONS` 按项目展开三阶段课程。内容切片使用累计配额，所有 700/300/100 项只在 `learn` 或 `build` 课程中标记一次为 `new`，后续由调度器复习。`review` 课程的三个新内容数组均为空；句型并非每节都有，无新句型时 `newEnglishPatternIds` 为空数组。
 
 Run: `node --test tests/course-catalog.test.js tests/curriculum-content.test.js`
 
@@ -378,7 +384,7 @@ Expected: FAIL because version 2 APIs are absent and current parser rejects vers
 
 - [ ] **Step 3: 实现严格解析与迁移**
 
-使用新键 `space-construction-fleet.progress.v2` 和 `space-construction-fleet.active.v2`。加载时先读 v2；不存在时读 v1 并迁移。课程状态只允许 `notStarted`、`viewed`、`practiced`、`reviewDue`、`mastered`。解析或迁移失败时把原始字符串保存在模块内的 `lastMigrationBackup`，由 `getMigrationBackup()` 返回，再使用全新 v2 进度；任何存储异常将 `storageAvailable` 设为 `false`。
+使用新键 `space-construction-fleet.progress.v2` 和 `space-construction-fleet.active.v2`。加载时先读 v2；不存在时读 v1 并迁移。课程状态只允许 `notStarted`、`viewed`、`practiced`、`reviewDue`、`mastered`。迁移通过 `LEGACY_SKILL_MAP` 把首版 `zh:*`、`en:*`、`math:*` 和 `mixed:*` ID 映射到新版课程 ID 或数学域，不保留无法调度的孤儿技能。解析或迁移失败时把原始字符串保存在模块内的 `lastMigrationBackup`，由 `getMigrationBackup()` 返回，再使用全新 v2 进度；任何存储异常将 `storageAvailable` 设为 `false`。
 
 - [ ] **Step 4: 实现快照、幂等奖励字段和 JSON 导出并运行测试**
 
@@ -607,7 +613,7 @@ git commit -m "feat: build engineering world and lesson experience"
 - Create: `tests/course-table.test.js`
 
 **Interfaces:**
-- Produces: `buildCourseRows(lessons, progress)`, `filterCourseRows(rows, filters)`, `courseSummary(rows)`。
+- Produces: `buildCourseRows(lessons, progress)`, `filterCourseRows(rows, filters)`, `focusCourseRows(rows, subject)`, `courseSummary(rows)`。
 - Filters shape: `{ tier: 'all' | 1 | 2 | 3, subject: 'all' | 'chinese' | 'english' | 'math', regionId: 'all' | string, status: 'all' | LessonStatus }`。
 - Produces: `renderCourseTable(model)`。
 
@@ -636,11 +642,12 @@ test('filters combine tier, subject, region and status', () => {
   ];
   const result = filterCourseRows(rows, {
     tier: 2,
-    subject: 'english',
+    subject: 'all',
     regionId: 'harbor-island',
     status: 'reviewDue',
   });
-  assert.deepEqual(result.map((row) => row.id), ['lesson-100']);
+  assert.deepEqual(result.map((row) => row.id), ['lesson-100', 'lesson-101']);
+  assert.deepEqual(focusCourseRows(result, 'english').map((row) => row.id), ['lesson-100']);
 });
 ```
 
@@ -652,7 +659,7 @@ Expected: FAIL because course table modules do not exist.
 
 - [ ] **Step 3: 实现课程行模型、组合筛选和摘要**
 
-每行包括课程编号、标题、阶段、区域、汉字、英语词汇、句型、数学目标、预计时长、查看时间、完成次数、最近学习、提示次数和状态。排序按课程序号稳定排列。摘要分别统计五种状态和三科覆盖量。
+每行包括课程编号、标题、阶段、区域、汉字、英语词汇、句型、数学目标、预计时长、查看时间、完成次数、最近学习、提示次数和状态。排序按课程序号稳定排列。阶段、区域和状态筛选课程行；科目选择通过 `focusCourseRows` 仅展示含该科内容的行并聚焦对应内容列，使混合课程中的科目筛选仍有意义。摘要分别统计五种状态和三科覆盖量。
 
 - [ ] **Step 4: 实现成人视图和 JSON 下载**
 
