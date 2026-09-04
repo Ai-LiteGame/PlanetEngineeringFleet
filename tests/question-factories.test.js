@@ -1,0 +1,108 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  CHINESE_ITEMS,
+  ENGLISH_PATTERNS,
+  ENGLISH_WORDS,
+  LESSONS,
+} from '../src/curriculum/index.js';
+import { buildLessonInteractions } from '../src/question-factories.js';
+import { createProgressV2 } from '../src/storage.js';
+
+const languageTierById = new Map([
+  ...CHINESE_ITEMS,
+  ...ENGLISH_WORDS,
+  ...ENGLISH_PATTERNS,
+].map((item) => [item.id, item.tier]));
+
+test('a lesson builds twelve serializable interactions with a mixed final task', () => {
+  const interactions = buildLessonInteractions(LESSONS[0], createProgressV2(), 9, 1000);
+
+  assert.equal(interactions.length, 12);
+  assert.equal(interactions.at(-1).subject, 'mixed');
+  assert.equal(interactions.every((item) => item.choices.some((choice) => choice.id === item.answerId)), true);
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(interactions)));
+});
+
+test('same lesson seed and progress produce the same interaction order', () => {
+  const progress = createProgressV2();
+  const first = buildLessonInteractions(LESSONS[0], progress, 42, 1000);
+  const second = buildLessonInteractions(LESSONS[0], progress, 42, 1000);
+
+  assert.deepEqual(first, second);
+  assert.notDeepEqual(first, buildLessonInteractions(LESSONS[0], progress, 43, 1000));
+});
+
+test('language distractors are distinct from the answer and stay in the lesson tier', () => {
+  const lesson = LESSONS.find((item) => item.tier === 2 && item.phase === 'learn');
+  const interactions = buildLessonInteractions(lesson, createProgressV2(), 7, 1000);
+
+  for (const interaction of interactions.filter((item) => item.subject === 'chinese' || item.subject === 'english')) {
+    const choiceIds = interaction.choices.map((choice) => choice.id);
+    assert.equal(new Set(choiceIds).size, choiceIds.length);
+    assert.equal(choiceIds.filter((id) => id === interaction.answerId).length, 1);
+    for (const id of choiceIds) assert.equal(languageTierById.get(id), lesson.tier);
+  }
+});
+
+test('word-match distractors never duplicate the displayed answer label', () => {
+  const lesson = LESSONS.find((item) => item.id === 'lesson-047');
+  const interactions = buildLessonInteractions(lesson, createProgressV2(), 5, 1000);
+
+  for (const interaction of interactions.filter((item) => item.kind === 'chinese-word-match')) {
+    const labels = interaction.choices.map((choice) => choice.label);
+    assert.equal(new Set(labels).size, labels.length);
+  }
+});
+
+test('mixed delivery count distractors stay inside the lesson math range', () => {
+  const interactions = buildLessonInteractions(LESSONS[0], createProgressV2(), 49, 1000);
+  const countDistractor = interactions.at(-1).choices.find((item) => item.id === 'delivery-count');
+  const displayedCount = Number(countDistractor.label.match(/ · (\d+) · /)[1]);
+
+  assert.equal(displayedCount <= 10, true);
+});
+
+test('a review lesson with empty new arrays uses prior project content', () => {
+  const reviewLesson = LESSONS.find((lesson) => lesson.id === 'lesson-003');
+  const priorSkillIds = new Set(LESSONS.slice(0, 2).flatMap((lesson) => [
+    ...lesson.newChineseIds,
+    ...lesson.newEnglishWordIds,
+    ...lesson.newEnglishPatternIds,
+    lesson.mathSkillId,
+  ]));
+  const interactions = buildLessonInteractions(reviewLesson, createProgressV2(), 11, 1000);
+
+  assert.equal(interactions.length, 12);
+  assert.equal(interactions.some((item) => item.skillIds.some((id) => priorSkillIds.has(id))), true);
+  assert.equal(interactions.every((item) => item.skillIds.length > 0), true);
+});
+
+test('curriculum math domains route to their matching question factories', () => {
+  const expectedKinds = new Map([
+    ['math-number-sense-1', 'math-count'],
+    ['math-addition-1', 'math-addition'],
+    ['math-subtraction-1', 'math-subtraction'],
+    ['math-comparison-1', 'math-comparison'],
+    ['math-pattern-1', 'math-pattern'],
+    ['math-space-1', 'math-space'],
+  ]);
+
+  for (const [skillId, kind] of expectedKinds) {
+    const lesson = LESSONS.find((item) => item.mathSkillId === skillId);
+    const interactions = buildLessonInteractions(lesson, createProgressV2(), 5, 1000);
+    assert.equal(interactions.filter((item) => item.subject === 'math').every((item) => item.kind === kind), true);
+  }
+});
+
+test('interaction actions stay inside the construction fleet vocabulary', () => {
+  const supportedActions = new Set([
+    'dig', 'push', 'lift', 'mix', 'dump', 'roll', 'load', 'spray', 'plow', 'drill',
+  ]);
+
+  for (const lesson of LESSONS) {
+    const interactions = buildLessonInteractions(lesson, createProgressV2(), 5, 1000);
+    assert.equal(interactions.every((item) => supportedActions.has(item.action)), true, lesson.id);
+  }
+});

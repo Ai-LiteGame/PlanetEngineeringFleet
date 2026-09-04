@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 
 import {
   createInitialState,
+  createLessonState,
   createSession,
   submitAnswer,
   advance,
+  completeLesson,
   updateMastery,
   questionWeight,
 } from '../src/game-core.js';
+import { createProgressV2 } from '../src/storage.js';
 
 test('initial state waits at the intro without a running session', () => {
   assert.deepEqual(createInitialState(), {
@@ -137,4 +140,108 @@ test('mastered skills receive extra review weight at spaced session offsets', ()
   assert.equal(questionWeight(question, progress, 6), 1);
   assert.equal(questionWeight(question, progress, 7), 2);
   assert.equal(questionWeight({ skillId: 'zh:水' }, progress, 7), 4);
+});
+
+test('leaving a lesson briefing records viewed without recording practice', () => {
+  const progress = createProgressV2();
+  const briefing = createLessonState('lesson-001', progress, 3, 1000);
+
+  assert.equal(briefing.screen, 'briefing');
+  assert.equal(progress.lessons['lesson-001'], undefined);
+
+  const playing = advance(briefing);
+  assert.equal(playing.screen, 'playing');
+  assert.deepEqual(playing.progress.lessons['lesson-001'], {
+    status: 'viewed',
+    viewedAt: 1000,
+    completedCount: 0,
+    lastCompletedAt: null,
+  });
+  assert.equal(progress.lessons['lesson-001'], undefined);
+});
+
+test('wrong answers reveal three help levels without completing the interaction', () => {
+  let state = createLessonState('lesson-001', createProgressV2(), 3, 1000);
+  state = submitAnswer(state, 'wrong').state;
+  state = submitAnswer(state, 'wrong-again').state;
+  state = submitAnswer(state, 'wrong-third').state;
+
+  assert.equal(state.screen, 'playing');
+  assert.equal(state.hintLevel, 3);
+  assert.equal(state.answered, false);
+  assert.equal(state.demonstratedAnswerId, state.interactions[0].answerId);
+
+  const result = submitAnswer(state, state.interactions[0].answerId);
+  assert.equal(result.correct, true);
+  assert.equal(result.state.answers[0].assistance, 3);
+});
+
+test('lesson answer submission locks until immutable advancement', () => {
+  const state = advance(createLessonState('lesson-001', createProgressV2(), 3, 1000));
+  const interaction = state.interactions[0];
+  const answered = submitAnswer(state, interaction.answerId).state;
+  const duplicate = submitAnswer(answered, interaction.answerId).state;
+
+  assert.equal(answered.answered, true);
+  assert.equal(answered.locked, true);
+  assert.equal(duplicate, answered);
+
+  const next = advance(answered);
+  assert.notEqual(next, answered);
+  assert.equal(next.interactionIndex, 1);
+  assert.equal(next.answered, false);
+  assert.equal(next.hintLevel, 0);
+  assert.equal(answered.interactionIndex, 0);
+});
+
+test('completing a lesson marks viewed and practiced separately and records skill evidence once', () => {
+  let state = createLessonState('lesson-001', createProgressV2(), 3, 1000);
+  while (!state.completed) {
+    const interaction = state.interactions[state.interactionIndex];
+    state = submitAnswer(state, interaction.answerId).state;
+    state = advance(state);
+  }
+
+  assert.equal(state.screen, 'projectComplete');
+  const progress = completeLesson(state, createProgressV2(), 5000);
+  assert.equal(progress.lessons['lesson-001'].completedCount, 1);
+  assert.equal(progress.lessons['lesson-001'].status, 'practiced');
+  assert.equal(Object.values(progress.skills).every((record) => record.exposures > 0), true);
+
+  const repeated = completeLesson(state, progress, 6000);
+  assert.deepEqual(repeated, progress);
+  assert.equal(repeated.lessons['lesson-001'].completedCount, 1);
+  assert.equal(advance(state).screen, 'map');
+});
+
+test('a fresh replay receives the next completion id and increments the count', () => {
+  const once = createProgressV2({
+    lessons: {
+      'lesson-001': { status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 5000 },
+    },
+  });
+  let state = createLessonState('lesson-001', once, 8, 6000);
+  while (!state.completed) {
+    state = submitAnswer(state, state.interactions[state.interactionIndex].answerId).state;
+    state = advance(state);
+  }
+
+  assert.equal(state.completionId, 'lesson-001:2');
+  assert.equal(completeLesson(state, once, 7000).lessons['lesson-001'].completedCount, 2);
+});
+
+test('replaying an old lesson does not move the current lesson backward', () => {
+  const progress = createProgressV2({
+    currentLessonId: 'lesson-100',
+    lessons: {
+      'lesson-001': { status: 'practiced', viewedAt: 1000, completedCount: 1, lastCompletedAt: 5000 },
+    },
+  });
+  let state = createLessonState('lesson-001', progress, 8, 6000);
+  while (!state.completed) {
+    state = submitAnswer(state, state.interactions[state.interactionIndex].answerId).state;
+    state = advance(state);
+  }
+
+  assert.equal(completeLesson(state, progress, 7000).currentLessonId, 'lesson-100');
 });
