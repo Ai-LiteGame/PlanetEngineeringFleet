@@ -54,6 +54,12 @@ export function vehicleUnlocks(progress) {
     .map((upgrade) => upgrade.id);
 }
 
+export function medalForMasteryRatio(masteryRatio) {
+  if (masteryRatio >= 0.85) return 'gold';
+  if (masteryRatio >= 0.6) return 'silver';
+  return 'bronze';
+}
+
 export function regionMedal(progress, regionId) {
   const regionalProjectIds = projectIdsByRegion.get(regionId);
   const regionalSkillIds = skillIdsByRegion.get(regionId);
@@ -66,9 +72,7 @@ export function regionMedal(progress, regionId) {
     total + (progress?.skills?.[skillId]?.status === 'mastered' ? 1 : 0)
   ), 0);
   const masteryRatio = regionalSkillIds.length === 0 ? 0 : masteredCount / regionalSkillIds.length;
-  if (masteryRatio > 0.85) return 'gold';
-  if (masteryRatio >= 0.6) return 'silver';
-  return 'bronze';
+  return medalForMasteryRatio(masteryRatio);
 }
 
 export function awardLessonCompletion(progress, lesson, _mastery) {

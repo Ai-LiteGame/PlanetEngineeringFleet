@@ -7,6 +7,7 @@ import {
   STAGE_HONOR_MILESTONES,
   VEHICLE_UPGRADE_MILESTONES,
   awardLessonCompletion,
+  medalForMasteryRatio,
   regionMedal,
   vehicleUnlocks,
 } from '../src/honors.js';
@@ -111,6 +112,11 @@ test('regional medals require all projects and use mastery evidence thresholds',
     honors: completedHonors,
     skills: masteredSkills(skills.slice(0, overEightyFivePercent)),
   }, regionId), 'gold');
+});
+
+test('gold medal includes an exact eighty-five percent mastery ratio', () => {
+  assert.equal(medalForMasteryRatio(0.8499), 'silver');
+  assert.equal(medalForMasteryRatio(0.85), 'gold');
 });
 
 test('vehicle upgrades unlock cumulatively at the exact project milestones', () => {
@@ -219,5 +225,8 @@ test('garage renders fleet SVGs, earned honors and color swatches without commer
   assert.match(html, /工作灯/);
   assert.match(html, /车身贴纸/);
   assert.match(html, /class="garage-swatch/);
+  for (const label of ['工程黄', '救援红', '森林绿', '海港蓝', '冰雪白']) {
+    assert.match(html, new RegExp(`class="garage-swatch"[^>]*role="img"[^>]*aria-label="${label}"`));
+  }
   assert.doesNotMatch(html, /金币|货币|价格|购买|商店|排行榜/);
 });
