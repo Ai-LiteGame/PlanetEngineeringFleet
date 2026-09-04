@@ -64,6 +64,21 @@ test('Chinese items use specific word associations and varied matching contexts'
   });
 });
 
+test('Chinese associations avoid audited formal, incomplete, and weak terms', () => {
+  const disallowedWords = new Set([
+    '目的', '少数', '甜果', '住家', '会面', '铜铁', '正方', '长颈', '推土',
+  ]);
+  assert.equal(CHINESE_ITEMS.some(({ word }) => disallowedWords.has(word)), false);
+
+  const wordsByCharacter = new Map(CHINESE_ITEMS.map(({ char, word }) => [char, word]));
+  assert.deepEqual(Object.fromEntries([
+    '目', '少', '甜', '住', '会', '铜', '正', '颈', '推',
+  ].map((char) => [char, wordsByCharacter.get(char)])), {
+    目: '节目', 少: '少量', 甜: '甜味', 住: '住校', 会: '会唱',
+    铜: '铜钱', 正: '正方形', 颈: '长颈鹿', 推: '推土机',
+  });
+});
+
 test('math inventory covers every required learning domain', () => {
   const domains = new Set(MATH_SKILLS.map((item) => item.domain));
   for (const domain of [
