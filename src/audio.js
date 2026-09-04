@@ -1,6 +1,7 @@
 let soundEnabled = true;
 let audioContext = null;
 let activeSpeech = null;
+const nativeSpeechHandler = 'planetEngineeringFleetTts';
 
 function finishActiveSpeech(completed = false) {
   activeSpeech?.finish(completed);
@@ -8,26 +9,38 @@ function finishActiveSpeech(completed = false) {
 
 export function setSoundEnabled(value) {
   soundEnabled = Boolean(value);
-  if (!soundEnabled && 'speechSynthesis' in globalThis) {
+  if (!soundEnabled) {
     finishActiveSpeech(false);
-    globalThis.speechSynthesis.cancel();
+    try {
+      globalThis.speechSynthesis?.cancel();
+    } catch {
+      // Some WebViews expose speechSynthesis before its native backend is ready.
+    }
   }
 }
 
-export function isSpeechAvailable() {
+function nativeBridge() {
+  const bridge = globalThis.flutter_inappwebview;
+  return typeof bridge?.callHandler === 'function' ? bridge : null;
+}
+
+function isWebSpeechAvailable() {
   return typeof globalThis.SpeechSynthesisUtterance === 'function'
     && Boolean(globalThis.speechSynthesis);
 }
 
-export function speak(text, lang = 'zh-CN') {
-  if (!soundEnabled || !text || !isSpeechAvailable()) return Promise.resolve(false);
+export function isSpeechAvailable() {
+  return Boolean(nativeBridge()) || isWebSpeechAvailable();
+}
+
+function speakWithWebSpeech(text, lang, rate, pitch) {
+  if (!isWebSpeechAvailable()) return Promise.resolve(false);
   try {
-    finishActiveSpeech(false);
     globalThis.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new globalThis.SpeechSynthesisUtterance(text);
     utterance.lang = lang;
-    utterance.rate = lang.startsWith('en') ? 0.72 : 0.82;
-    utterance.pitch = 1.08;
+    utterance.rate = rate;
+    utterance.pitch = pitch;
     return new Promise((resolve) => {
       let settled = false;
       const fallbackTimer = setTimeout(() => finish(false), 10000);
@@ -52,6 +65,67 @@ export function speak(text, lang = 'zh-CN') {
   } catch {
     return Promise.resolve(false);
   }
+}
+
+function speakWithNative(bridge, payload) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const speech = {
+      finish(completed) {
+        if (settled) return;
+        settled = true;
+        if (activeSpeech === speech) activeSpeech = null;
+        resolve(completed);
+      },
+    };
+
+    const fallback = () => {
+      if (settled) return;
+      settled = true;
+      if (activeSpeech === speech) activeSpeech = null;
+      speakWithWebSpeech(
+        payload.text,
+        payload.lang,
+        payload.rate,
+        payload.pitch,
+      ).then(resolve);
+    };
+
+    activeSpeech = speech;
+    try {
+      Promise.resolve(bridge.callHandler(nativeSpeechHandler, payload)).then(
+        (result) => {
+          if (result?.ok === true) speech.finish(true);
+          else fallback();
+        },
+        fallback,
+      );
+    } catch {
+      fallback();
+    }
+  });
+}
+
+export function speak(text, lang = 'zh-CN') {
+  if (!soundEnabled || !text) return Promise.resolve(false);
+
+  finishActiveSpeech(false);
+  try {
+    globalThis.speechSynthesis?.cancel();
+  } catch {
+    // Native speech remains available even if Web Speech initialization fails.
+  }
+
+  const payload = {
+    text,
+    lang,
+    rate: lang.startsWith('en') ? 0.72 : 0.82,
+    pitch: 1.08,
+  };
+  const bridge = nativeBridge();
+  return bridge
+    ? speakWithNative(bridge, payload)
+    : speakWithWebSpeech(text, lang, payload.rate, payload.pitch);
 }
 
 export function createSpeechCountdown({
